@@ -28,7 +28,7 @@ npm install class-validator class-transformer
 npm install @aws-sdk/client-s3 multer
 npm install -D @types/multer
 
-## 4.환경변수 파일 생성
+## 4. 환경변수 파일 생성
 
 1. .env.development, .env.production, .env.example 파일 3개 생성
    [.env.development]
@@ -49,3 +49,78 @@ AWS_REGION=ap-northeast-2
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
 AWS_S3_BUCKET=loop-bucket-dev
+
+## 5. package.json 실행 스크립트 수정
+
+"start": "NODE_ENV=development nest start",
+"start:dev": "NODE_ENV=development nest start --watch",
+"start:debug": "NODE_ENV=development nest start --debug --watch",
+"start:prod": "NODE_ENV=production node dist/main",
+
+## 6. Docker Compose 파일 생성
+
+[docker-compose.yml]
+version: '3.8'
+services:
+postgres:
+image: postgres:16
+environment:
+POSTGRES_USER: loop
+POSTGRES_PASSWORD: loop1234
+POSTGRES_DB: loop_db
+ports: - '5432:5432'
+volumes: - postgres_data:/var/lib/postgresql/data
+
+volumes:
+postgres_data:
+
+## 7. Docker로 PostgreSQL 실행
+
+[-d: 백그라운드에서 실행하여 터미널을 계속 점유 x]
+docker compose up -d
+
+## 8. NestJS와 DB 연결 설정
+
+[NestJS .env 파일을 읽고 DB에 연결하도록 app.module.ts를 수정]
+
+### 8-1. ConfigModule 추가 (환경변수 로드)
+
+import { ConfigModule } from '@nestjs/config';
+
+[app.module.ts의 imports: [] 안에 추가]
+ConfigModule.forRoot({
+envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
+isGlobal: true,
+}),
+
+envFilePath → NODE_ENV 값에 따라 .env.development 또는 .env.production을 자동으로 읽음
+isGlobal: true → 모든 모듈에서 별도 import 없이 환경변수 사용 가능
+
+### 8-2 TypeOrmModule 추가 (DB 연결)
+
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+[app.module.ts의 imports: [] 안에 추가]
+TypeOrmModule.forRootAsync({
+imports: [ConfigModule],
+inject: [ConfigService],
+useFactory: (config: ConfigService) => ({
+type: 'postgres',
+host: config.get('DB_HOST'),
+port: config.get<number>('DB_PORT'),
+username: config.get('DB_USER'),
+password: config.get('DB_PASSWORD'),
+database: config.get('DB_NAME'),
+entities: [__dirname + '/**/*.entity{.ts,.js}'],
+synchronize: config.get('NODE_ENV') !== 'production',
+}),
+}),
+
+forRootAsync → 환경변수가 로드된 후 DB 연결하도록 비동기로 설정
+entities → \*.entity.ts 파일을 자동으로 찾아서 DB 테이블로 등록
+synchronize → 개발 환경에서만 Entity 바뀌면 DB에 자동 반영 (운영은 false)
+
+## 9. 서버 실행 및 DB 연결 확인
+
+npm run start:dev
