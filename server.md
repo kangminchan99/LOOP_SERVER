@@ -124,3 +124,35 @@ synchronize → 개발 환경에서만 Entity 바뀌면 DB에 자동 반영 (운
 ## 9. 서버 실행 및 DB 연결 확인
 
 npm run start:dev
+
+## 10. User Entity 생성
+
+src/users/entities/user.entity.ts
+
+## 11. User 모듈/서비스/컨트롤러 생성
+
+### User 모듈/서비스/컨트롤러 자동 생성
+
+<!-- Module: 묶음(기능 단위의 독립 공간) -->
+
+nest g module users
+
+<!-- Service: 실제 동작(비즈니스 로직) -->
+
+nest g service users/services/users
+
+<!-- Controller: HTTP 요청/응답 처리 -->
+
+nest g controller users/controllers/users
+
+## 12. User CRUD 기본 구현
+
+### users.module.ts에 Entity, Service, Controller 등록
+
+### UsersService 구현
+
+### UserController 구현
+
+## 13. Swagger 구현 및 설정 추가
+
+npm install @nestjs/swagger swagger-ui-express

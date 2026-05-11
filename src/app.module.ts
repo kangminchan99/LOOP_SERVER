@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -28,43 +29,9 @@ import { AppService } from './app.service';
         synchronize: config.get('NODE_ENV') !== 'production', // 개발환경에서만 Entity 변경 시 DB 자동 반영 (운영은 false)
       }),
     }),
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-
-// import { Module } from '@nestjs/common';
-// import { ConfigModule, ConfigService } from '@nestjs/config';
-// import { TypeOrmModule } from '@nestjs/typeorm';
-// import { AppController } from './app.controller';
-// import { AppService } from './app.service';
-
-// @Module({
-//   imports: [
-//     // 환경변수 전역 설정
-//     ConfigModule.forRoot({
-//       envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
-//       isGlobal: true,
-//     }),
-
-//     // DB 연결 설정
-//     TypeOrmModule.forRootAsync({
-//       imports: [ConfigModule],
-//       inject: [ConfigService],
-//       useFactory: (config: ConfigService) => ({
-//         type: 'postgres',
-//         host: config.get('DB_HOST'),
-//         port: config.get<number>('DB_PORT'),
-//         username: config.get('DB_USER'),
-//         password: config.get('DB_PASSWORD'),
-//         database: config.get('DB_NAME'),
-//         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-//         synchronize: config.get('NODE_ENV') !== 'production', // 운영에서는 false
-//       }),
-//     }),
-//   ],
-//   controllers: [AppController],
-//   providers: [AppService],
-// })
-// export class AppModule {}
