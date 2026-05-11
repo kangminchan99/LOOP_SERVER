@@ -156,3 +156,17 @@ nest g controller users/controllers/users
 ## 13. Swagger 구현 및 설정 추가
 
 npm install @nestjs/swagger swagger-ui-express
+
+## 14. Auth(인증) 모듈 구현
+
+Auth 모듈 생성
+
+- nest g module auth
+- nest g service auth/services/auth
+- nest g controller auth/controllers/auth
+
+회원가입 시 비밀번호 해시(bcrypt)
+로그인 시 비밀번호 검증
+Access/Refresh 토큰 발급
+JWT Guard로 보호 API 적용
+Swagger에 Bearer 인증 버튼 연결
