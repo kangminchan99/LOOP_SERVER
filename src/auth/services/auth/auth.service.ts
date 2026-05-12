@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,6 +12,7 @@ import { UserResponseDto } from '../../../users/dto/user-response.dto';
 import { User } from '../../../users/entities/user.entity';
 import { AuthTokenResponseDto } from '../../dto/auth-token-response.dto';
 import { LoginDto } from '../../dto/login.dto';
+import { RefreshTokenDto } from '../../dto/refresh-token.dto';
 import { RegisterDto } from '../../dto/register.dto';
 
 @Injectable() // Nest DI 컨테이너에 서비스로 등록
@@ -89,6 +91,44 @@ export class AuthService {
       user: UserResponseDto.fromEntity(user),
       accessToken,
       refreshToken,
+    };
+  }
+
+  // 리프레시 토큰을 검증하고 새 토큰 쌍을 재발급
+  async refresh(dto: RefreshTokenDto): Promise<AuthTokenResponseDto> {
+    const { refreshToken } = dto;
+
+    // 1) 전달받은 Refresh Token의 서명/만료를 검증
+    let payload: { sub: number; email: string };
+    try {
+      payload = this.jwtService.verify<{ sub: number; email: string }>(
+        refreshToken,
+      );
+    } catch {
+      throw new UnauthorizedException('유효하지 않은 Refresh Token입니다.');
+    }
+
+    // 2) 토큰의 사용자 정보로 실제 유저를 다시 조회
+    const user = await this.usersRepository.findOne({
+      where: { id: payload.sub },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('유저를 찾을 수 없습니다.');
+    }
+
+    // 3) 새 Access/Refresh Token 재발급
+    const newPayload = { sub: user.id, email: user.email };
+    const accessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
+    const newRefreshToken = this.jwtService.sign(newPayload, {
+      expiresIn: '7d',
+    });
+
+    // 4) 최신 유저 정보 + 신규 토큰 반환
+    return {
+      user: UserResponseDto.fromEntity(user),
+      accessToken,
+      refreshToken: newRefreshToken,
     };
   }
 }

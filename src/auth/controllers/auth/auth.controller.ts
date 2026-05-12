@@ -7,9 +7,11 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthTokenResponseDto } from '../../dto/auth-token-response.dto';
 import { LoginDto } from '../../dto/login.dto';
+import { RefreshTokenDto } from '../../dto/refresh-token.dto';
 import { RegisterDto } from '../../dto/register.dto';
 import { AuthService } from '../../services/auth/auth.service';
 
@@ -41,5 +43,18 @@ export class AuthController {
   @Post('login') // POST /auth/login
   login(@Body() dto: LoginDto): Promise<AuthTokenResponseDto> {
     return this.authService.login(dto);
+  }
+
+  @ApiOperation({ summary: '토큰 리프레쉬' })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiOkResponse({
+    description: '토큰 리프레쉬 성공',
+    type: AuthTokenResponseDto,
+  }) // 200
+  @ApiBadRequestResponse({ description: '요청 값 검증 실패' }) // 400
+  @ApiUnauthorizedResponse({ description: '유효하지 않은 Refresh Token' }) // 401
+  @Post('refresh') // POST /auth/refresh
+  refresh(@Body() dto: RefreshTokenDto): Promise<AuthTokenResponseDto> {
+    return this.authService.refresh(dto);
   }
 }
