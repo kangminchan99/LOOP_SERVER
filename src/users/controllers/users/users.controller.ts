@@ -6,9 +6,11 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -18,7 +20,10 @@ import {
   ApiOperation,
   ApiParam,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreateUserDto } from '../../dto/create-user.dto';
 import { UserResponseDto } from '../../dto/user-response.dto';
 import { UsersService } from '../../services/users/users.service';
@@ -39,6 +44,23 @@ export class UsersController {
   async findAll(): Promise<UserResponseDto[]> {
     const users = await this.usersService.findAll();
     return users.map((user) => UserResponseDto.fromEntity(user));
+  }
+
+  @ApiOperation({ summary: '현재 로그인한 사용자 정보 조회' })
+  @ApiBearerAuth()
+  @ApiOkResponse({
+    description: '사용자 정보 조회 성공',
+    type: UserResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: '인증 토큰이 없거나 유효하지 않습니다.',
+  })
+  @ApiNotFoundResponse({ description: '사용자를 찾을 수 없습니다.' })
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  async getMe(@CurrentUser() userId: number): Promise<UserResponseDto> {
+    const user = await this.usersService.findOne(userId);
+    return UserResponseDto.fromEntity(user);
   }
 
   @ApiOperation({ summary: '유저 단건 조회' })
