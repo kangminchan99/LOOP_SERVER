@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { User } from '../../entities/user.entity';
 
@@ -48,10 +49,13 @@ export class UsersService {
       throw new ConflictException('이미 존재하는 이메일입니다.');
     }
 
+    // 비밀번호 해시 (평문 저장 금지)
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // create: 메모리 상 엔티티 객체 생성 (DB 저장 X)
     const user = this.usersRepository.create({
       email,
-      password,
+      password: hashedPassword,
       nickname,
     });
 
