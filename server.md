@@ -170,3 +170,52 @@ Auth 모듈 생성
 Access/Refresh 토큰 발급
 JWT Guard로 보호 API 적용
 Swagger에 Bearer 인증 버튼 연결
+
+## 15. Posts(게시글) 기능 구현
+
+<!-- 게시글 기능의 묶음 생성(관련 컨트롤러/서비스/엔티티를 한 도메인으로 관리) -->
+
+nest g module posts
+
+<!-- 비즈니스 로직 담당 클래스 생성(게시글 생성, 수정, 삭제 등 DB 레포 호출) -->
+
+nest g service posts/services/posts
+
+<!-- HTTP 요청/응답 입구 생성 -->
+
+nest g controller posts/controllers/posts
+
+## 16. Post 엔티티 만들기
+
+- src/posts/entities/post.entity.ts
+
+## 17. Post 엔티티를 posts 모듈에 연결
+
+@Module({
+
+   <!-- TypeORM에게 Post 엔티티를 대상으로 한 Repository를 생성하라고 알려줌 -->
+
+imports: [TypeOrmModule.forFeature([Post])],
+providers: [PostsService],
+controllers: [PostsController],
+})
+
+## 18. CreatePostDto 만들기
+
+<!-- 서비스 DTO 작성 단계 -->
+
+- src/posts/dto/create-post.dto.ts
+
+## 19. PostsService에 글쓰기 로직 추가
+
+- posts.service.ts
+
+## 20. 컨트롤러에 글쓰기 API 연결
+
+- posts.controller.ts
+
+## 21. 응답 DTO 분리
+
+- src/posts/dto/post-response.dto.ts
+
+컨트롤러 응답 타입 교체 (posts.controller.ts)
