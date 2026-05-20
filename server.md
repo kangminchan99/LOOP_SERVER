@@ -1,5 +1,12 @@
 # NestJS 서버 구축
 
+## 0.pgAdmin & Swagger
+
+- pgAdmin: http://localhost:5050
+  아이디: admin@example.com
+  비밀번호: admin
+- Swagger: http://localhost:3000/api-docs
+
 ## 1. NestJS CLI 설치
 
 1. npm i -g @nestjs/cli
