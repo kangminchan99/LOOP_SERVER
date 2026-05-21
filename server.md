@@ -226,3 +226,18 @@ controllers: [PostsController],
 - src/posts/dto/post-response.dto.ts
 
 컨트롤러 응답 타입 교체 (posts.controller.ts)
+
+## 22. AWS S3 이미지 업로드 및 연동
+
+- 1. AWS SDK 패키지 설치 npm (install @aws-sdk/client-s3 multer @types/multer uuid @types/uuid)
+- 2. AWS IAM 키 발급 (root)
+     root 계정 → IAM → 사용자 생성
+     이름: admin (또는 본인 이름)
+     권한: AdministratorAccess
+     액세스 키 발급 후 저장
+- 3. IAM 로그인 후 S3 버킷 생성
+- 4. env.development에 액세스 키, 리전, 버킷 추가
+- 5. 이미지 업로드 모듈/서비스/컨트롤러 생성
+     nest g module upload
+     nest g service upload/services/upload
+     nest g controller upload/controllers/upload
