@@ -11,10 +11,11 @@ import { ConfigService } from '@nestjs/config';
 // S3Client: S3와 통신하는 클라이언트 인스턴스
 // PutObjectCommand: S3에 파일을 업로드하는 명령 객체 (SDK v3는 커맨드 패턴 사용)
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import sharp from 'sharp';
 
 // Node.js 내장 path 모듈
 // extname: 파일 경로에서 확장자만 추출 (예: 'photo.jpg' → '.jpg')
-import { extname } from 'path';
+// import { extname } from 'path';
 
 // UUID v4 생성 함수
 // 파일명 충돌 방지용으로 사용 (같은 이름의 파일을 여러 번 올려도 S3에서 덮어쓰지 않음)
@@ -53,19 +54,29 @@ export class UploadService {
   }
 
   async uploadImage(file: UploadedImageFile): Promise<string> {
-    const key = this.buildObjectKey(file.originalname);
+    const key = this.buildObjectKey();
 
     try {
+      // 테스트 용량 절감: 긴 변 최대 1080, WebP 품질 55
+      const optimizedBuffer: Buffer = await sharp(file.buffer)
+        .rotate()
+        .resize({
+          width: 1080,
+          height: 1080,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 55, effort: 4 })
+        .toBuffer();
+
       await this.s3Client.send(
         new PutObjectCommand({
           Bucket: this.bucket,
           Key: key,
-          // file.buffer는 컨트롤러에서 memoryStorage를 사용했기 때문에
-          // 디스크에 임시 저장 없이 메모리에서 바로 S3로 전송된다.
-          Body: file.buffer,
+          Body: optimizedBuffer,
           // ContentType을 명시하지 않으면 S3가 'application/octet-stream'으로
           // 저장해서 브라우저가 이미지로 렌더링하지 못하고 다운로드로 처리한다.
-          ContentType: file.mimetype,
+          ContentType: 'image/webp',
         }),
       );
 
@@ -80,13 +91,13 @@ export class UploadService {
   // 같은 원본 파일명으로 여러 번 업로드하면 S3에서 덮어쓰기가 발생한다.
   // uuid로 파일명을 교체하고 연/월 폴더로 분류하면
   // 충돌을 방지하고 S3 수명주기 정책을 날짜 기준으로 적용할 수 있다.
-  private buildObjectKey(originalName: string): string {
+  private buildObjectKey(): string {
     const now = new Date();
     const yyyy = now.getUTCFullYear();
     const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-    // 원본 확장자를 유지해야 브라우저 캐싱 정책이 올바르게 동작한다.
-    const extension = extname(originalName).toLowerCase();
-    return `posts/${yyyy}/${mm}/${uuidv4()}${extension}`;
+    // // 원본 확장자를 유지해야 브라우저 캐싱 정책이 올바르게 동작한다.
+    // const extension = extname(originalName).toLowerCase();
+    return `posts/${yyyy}/${mm}/${uuidv4()}.webp`;
   }
 
   // 현재는 S3 기본 URL을 반환한다.
