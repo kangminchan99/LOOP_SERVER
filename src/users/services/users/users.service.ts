@@ -72,4 +72,14 @@ export class UsersService {
       throw new NotFoundException('유저를 찾을 수 없습니다.');
     }
   }
+
+  // 프로필 이미지 URL 갱신
+  async updateProfileImage(
+    userId: number,
+    profileImageUrl: string,
+  ): Promise<User> {
+    const user = await this.findOne(userId);
+    user.profileImageUrl = profileImageUrl;
+    return this.usersRepository.save(user);
+  }
 }

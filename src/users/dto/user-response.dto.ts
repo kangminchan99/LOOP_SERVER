@@ -12,6 +12,14 @@ export class UserResponseDto {
   nickname!: string;
 
   @ApiProperty({
+    example:
+      'https://loop-bucket-dev.s3.ap-northeast-2.amazonaws.com/profiles/2026/05/example.webp',
+    description: '프로필 이미지 URL',
+    nullable: true,
+  })
+  profileImageUrl!: string | null;
+
+  @ApiProperty({
     example: '2026-05-11T14:30:00.000Z',
     description: '생성 시각',
   })
@@ -28,6 +36,7 @@ export class UserResponseDto {
       id: user.id,
       email: user.email,
       nickname: user.nickname,
+      profileImageUrl: user.profileImageUrl,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import {
   Column,
   CreateDateColumn,
@@ -5,7 +6,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { ApiProperty } from '@nestjs/swagger';
 
 // DB에 users 테이블 생성
 @Entity('users')
@@ -25,6 +25,15 @@ export class User {
   @ApiProperty({ example: 'minchan', description: '유저 닉네임' })
   @Column({ nullable: true })
   nickname!: string;
+
+  @ApiProperty({
+    example:
+      'https://loop-bucket-dev.s3.ap-northeast-2.amazonaws.com/profiles/2026/05/example.webp',
+    description: '프로필 이미지 URL',
+    nullable: true,
+  })
+  @Column({ type: 'varchar', nullable: true })
+  profileImageUrl!: string | null;
 
   @ApiProperty({
     example: '2026-05-11T14:30:00.000Z',

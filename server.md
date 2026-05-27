@@ -227,7 +227,7 @@ controllers: [PostsController],
 
 컨트롤러 응답 타입 교체 (posts.controller.ts)
 
-## 22. AWS S3 이미지 업로드 및 연동
+## 22. AWS S3 프로필 이미지 업로드 및 연동
 
 - 1. AWS SDK 패키지 설치 npm (install @aws-sdk/client-s3 multer @types/multer uuid @types/uuid)
 - 2. AWS IAM 키 발급 (root)

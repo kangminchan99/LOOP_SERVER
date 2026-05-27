@@ -95,9 +95,7 @@ export class UploadService {
     const now = new Date();
     const yyyy = now.getUTCFullYear();
     const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-    // // 원본 확장자를 유지해야 브라우저 캐싱 정책이 올바르게 동작한다.
-    // const extension = extname(originalName).toLowerCase();
-    return `posts/${yyyy}/${mm}/${uuidv4()}.webp`;
+    return `profiles/${yyyy}/${mm}/${uuidv4()}.webp`;
   }
 
   // 현재는 S3 기본 URL을 반환한다.
