@@ -1,7 +1,12 @@
 // NestJS 의존성 주입 데코레이터 + HTTP 예외 클래스
 // Injectable: 이 클래스를 NestJS DI 컨테이너에 등록해 다른 곳에서 주입 가능하게 함
 // InternalServerErrorException: S3 업로드 실패 시 500 응답으로 변환하는 데 사용
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 
 // NestJS 환경변수 접근 서비스
 // .env 파일의 값을 타입 안전하게 읽을 수 있게 해줌 (process.env 직접 접근 대신 사용)
@@ -10,8 +15,14 @@ import { ConfigService } from '@nestjs/config';
 // AWS SDK v3 S3 관련 클래스
 // S3Client: S3와 통신하는 클라이언트 인스턴스
 // PutObjectCommand: S3에 파일을 업로드하는 명령 객체 (SDK v3는 커맨드 패턴 사용)
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import sharp from 'sharp';
+import { Repository } from 'typeorm';
+import { User } from '../../../users/entities/user.entity';
 
 // Node.js 내장 path 모듈
 // extname: 파일 경로에서 확장자만 추출 (예: 'photo.jpg' → '.jpg')
@@ -21,10 +32,17 @@ import sharp from 'sharp';
 // 파일명 충돌 방지용으로 사용 (같은 이름의 파일을 여러 번 올려도 S3에서 덮어쓰지 않음)
 import { v4 as uuidv4 } from 'uuid';
 
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
 interface UploadedImageFile {
   originalname: string;
   buffer: Buffer;
   mimetype: string;
+}
+
+interface UploadedImageResult {
+  key: string;
+  signedUrl: string;
 }
 
 @Injectable()
@@ -32,10 +50,19 @@ export class UploadService {
   private readonly s3Client: S3Client;
   private readonly bucket: string;
   private readonly region: string;
+  private readonly signedUrlExpiresIn: number;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
+  ) {
     this.region = this.configService.get<string>('AWS_REGION', '');
     this.bucket = this.configService.get<string>('AWS_S3_BUCKET', '');
+    this.signedUrlExpiresIn = this.configService.get<number>(
+      'AWS_S3_SIGNED_URL_EXPIRES_IN',
+      300,
+    );
 
     // S3Client는 매 요청마다 새로 만들면 커넥션 비용이 발생하므로
     // 생성자에서 한 번만 만들고 인스턴스 전체에서 재사용한다.
@@ -53,7 +80,10 @@ export class UploadService {
     });
   }
 
-  async uploadImage(file: UploadedImageFile): Promise<string> {
+  async uploadProfileImage(
+    userId: number,
+    file: UploadedImageFile,
+  ): Promise<UploadedImageResult> {
     const key = this.buildObjectKey();
 
     try {
@@ -80,8 +110,16 @@ export class UploadService {
         }),
       );
 
-      return this.buildPublicUrl(key);
-    } catch {
+      await this.updateUserProfileImageKey(userId, key);
+
+      // 업로드 직후 앱에서 즉시 미리보기를 할 수 있도록 Presigned URL을 발급한다.
+      const signedUrl = await this.getSignedGetUrl(key);
+      return { key, signedUrl };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
       // AWS SDK 에러에는 계정 정보나 버킷 내부 구조가 포함될 수 있어
       // 그대로 노출하면 보안 위협이 되므로 일반 메시지로 변환한다.
       throw new InternalServerErrorException('이미지 업로드에 실패했습니다.');
@@ -98,10 +136,45 @@ export class UploadService {
     return `profiles/${yyyy}/${mm}/${uuidv4()}.webp`;
   }
 
-  // 현재는 S3 기본 URL을 반환한다.
-  // 추후 CloudFront CDN을 붙이면 이 메서드만 수정하면 되므로
-  // URL 생성 로직을 별도 메서드로 분리해뒀다.
-  private buildPublicUrl(key: string): string {
-    return `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
+  async toSignedProfileImageUrl(
+    profileImageValue: string | null,
+  ): Promise<string | null> {
+    if (!profileImageValue) {
+      return null;
+    }
+
+    // 이전 데이터가 URL 형태로 저장된 경우도 안전하게 그대로 반환한다.
+    if (/^https?:\/\//.test(profileImageValue)) {
+      return profileImageValue;
+    }
+
+    // DB에 key만 저장된 경우 조회 시점마다 새 Presigned URL로 변환한다.
+    return this.getSignedGetUrl(profileImageValue);
+  }
+
+  private async updateUserProfileImageKey(
+    userId: number,
+    profileImageKey: string,
+  ): Promise<void> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('유저를 찾을 수 없습니다.');
+    }
+
+    user.profileImageUrl = profileImageKey;
+    await this.usersRepository.save(user);
+  }
+
+  private async getSignedGetUrl(key: string): Promise<string> {
+    // expiresIn 이후 만료되므로 클라이언트는 필요 시 user/me를 재조회해야 한다.
+    return getSignedUrl(
+      this.s3Client,
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }),
+      { expiresIn: this.signedUrlExpiresIn },
+    );
   }
 }

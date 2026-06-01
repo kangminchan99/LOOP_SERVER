@@ -17,16 +17,12 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
-import { UsersService } from '../../../users/services/users/users.service';
 import { UploadService } from '../../services/upload/upload.service';
 
 @ApiTags('Upload')
 @Controller('upload')
 export class UploadController {
-  constructor(
-    private readonly uploadService: UploadService,
-    private readonly usersService: UsersService,
-  ) {}
+  constructor(private readonly uploadService: UploadService) {}
 
   @ApiOperation({ summary: '프로필 이미지 업로드' })
   @ApiBearerAuth()
@@ -80,8 +76,11 @@ export class UploadController {
       throw new BadRequestException('이미지 파일(image)은 필수입니다.');
     }
 
-    const profileImageUrl = await this.uploadService.uploadImage(file);
-    await this.usersService.updateProfileImage(userId, profileImageUrl);
-    return { profileImageUrl };
+    const { signedUrl } = await this.uploadService.uploadProfileImage(
+      userId,
+      file,
+    );
+    // 응답에는 key가 아닌 Presigned URL을 내려 앱에서 바로 표시할 수 있게 한다.
+    return { profileImageUrl: signedUrl };
   }
 }

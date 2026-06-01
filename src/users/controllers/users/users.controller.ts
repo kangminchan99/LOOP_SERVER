@@ -24,14 +24,19 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { UploadService } from '../../../upload/services/upload/upload.service';
 import { CreateUserDto } from '../../dto/create-user.dto';
 import { UserResponseDto } from '../../dto/user-response.dto';
+import { User } from '../../entities/user.entity';
 import { UsersService } from '../../services/users/users.service';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly uploadService: UploadService,
+  ) {}
 
   @ApiOperation({ summary: '유저 목록 조회' })
   @ApiOkResponse({
@@ -43,7 +48,7 @@ export class UsersController {
   @Get()
   async findAll(): Promise<UserResponseDto[]> {
     const users = await this.usersService.findAll();
-    return users.map((user) => UserResponseDto.fromEntity(user));
+    return Promise.all(users.map((user) => this.toUserResponseDto(user)));
   }
 
   @ApiOperation({ summary: '현재 로그인한 사용자 정보 조회' })
@@ -60,7 +65,7 @@ export class UsersController {
   @Get('me')
   async getMe(@CurrentUser() userId: number): Promise<UserResponseDto> {
     const user = await this.usersService.findOne(userId);
-    return UserResponseDto.fromEntity(user);
+    return this.toUserResponseDto(user);
   }
 
   @ApiOperation({ summary: '유저 단건 조회' })
@@ -73,7 +78,7 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<UserResponseDto> {
     const user = await this.usersService.findOne(id);
-    return UserResponseDto.fromEntity(user);
+    return this.toUserResponseDto(user);
   }
 
   @ApiOperation({ summary: '유저 생성' })
@@ -88,7 +93,7 @@ export class UsersController {
       body.password,
       body.nickname,
     );
-    return UserResponseDto.fromEntity(user);
+    return this.toUserResponseDto(user);
   }
 
   @ApiOperation({ summary: '유저 삭제' })
@@ -99,5 +104,14 @@ export class UsersController {
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     await this.usersService.remove(id);
+  }
+
+  private async toUserResponseDto(user: User): Promise<UserResponseDto> {
+    const dto = UserResponseDto.fromEntity(user);
+    // DB에 저장된 profileImageUrl 값(key)을 응답 직전에 Presigned URL로 변환한다.
+    dto.profileImageUrl = await this.uploadService.toSignedProfileImageUrl(
+      dto.profileImageUrl,
+    );
+    return dto;
   }
 }

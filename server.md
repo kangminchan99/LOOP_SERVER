@@ -241,3 +241,7 @@ controllers: [PostsController],
      nest g module upload
      nest g service upload/services/upload
      nest g controller upload/controllers/upload
+
+## 22-1. Presigned URL 생성 준비
+
+npm install @aws-sdk/s3-request-presigner

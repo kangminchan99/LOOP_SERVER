@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UploadModule } from '../upload/upload.module';
 import { User } from '../users/entities/user.entity';
 import { AuthController } from './controllers/auth/auth.controller';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -12,6 +13,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   imports: [
     // AuthService에서 User Repository를 쓰기 위해 User 엔티티 등록
     TypeOrmModule.forFeature([User]),
+    UploadModule,
 
     // JWT 설정을 환경변수 기반으로 등록
     JwtModule.registerAsync({

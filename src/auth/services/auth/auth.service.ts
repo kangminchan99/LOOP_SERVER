@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
+import { UploadService } from '../../../upload/services/upload/upload.service';
 import { UserResponseDto } from '../../../users/dto/user-response.dto';
 import { User } from '../../../users/entities/user.entity';
 import { AuthTokenResponseDto } from '../../dto/auth-token-response.dto';
@@ -21,6 +22,7 @@ export class AuthService {
     @InjectRepository(User) // users 테이블 접근용 Repository 주입
     private readonly usersRepository: Repository<User>,
     private readonly jwtService: JwtService, // JWT 발급용 서비스 주입
+    private readonly uploadService: UploadService,
   ) {}
 
   // 회원가입
@@ -53,7 +55,7 @@ export class AuthService {
 
     // 5) 응답에는 비밀번호 제외
     return {
-      user: UserResponseDto.fromEntity(savedUser),
+      user: await this.toUserResponseDto(savedUser),
       accessToken,
       refreshToken,
     };
@@ -88,7 +90,7 @@ export class AuthService {
 
     // 4) 응답 반환 (비밀번호 제외)
     return {
-      user: UserResponseDto.fromEntity(user),
+      user: await this.toUserResponseDto(user),
       accessToken,
       refreshToken,
     };
@@ -126,9 +128,18 @@ export class AuthService {
 
     // 4) 최신 유저 정보 + 신규 토큰 반환
     return {
-      user: UserResponseDto.fromEntity(user),
+      user: await this.toUserResponseDto(user),
       accessToken,
       refreshToken: newRefreshToken,
     };
+  }
+
+  private async toUserResponseDto(user: User): Promise<UserResponseDto> {
+    const dto = UserResponseDto.fromEntity(user);
+    // 로그인/토큰 재발급 응답에서도 profileImageUrl은 Presigned URL로 맞춘다.
+    dto.profileImageUrl = await this.uploadService.toSignedProfileImageUrl(
+      dto.profileImageUrl,
+    );
+    return dto;
   }
 }
