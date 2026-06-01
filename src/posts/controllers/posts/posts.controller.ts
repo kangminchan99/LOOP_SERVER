@@ -1,9 +1,17 @@
-import { Body, Controller, Post as HttpPost, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post as HttpPost,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -11,8 +19,10 @@ import {
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreatePostDto } from '../../dto/create-dto';
-import { PostsService } from '../../services/posts/posts.service';
+import { GetPostsQueryDto } from '../../dto/get-posts-query.dto';
+import { PostListPageDto } from '../../dto/post-list-page.dto';
 import { PostResponseDto } from '../../dto/post-response.dto';
+import { PostsService } from '../../services/posts/posts.service';
 
 @ApiTags('posts') // Swagger 그룹 이름
 @Controller('posts') // 기본 경로: /posts
@@ -41,5 +51,16 @@ export class PostsController {
     // authorId는 body로 받지 않고 서버에서 userId로 강제
     const post = await this.postsService.create(userId, dto);
     return PostResponseDto.fromEntity(post);
+  }
+
+  // 게시글 목록 조회 GET /posts
+  @ApiOperation({ summary: '게시글 목록 조회' })
+  @ApiOkResponse({
+    description: '게시글 목록 조회 성공',
+    type: PostListPageDto,
+  })
+  @Get()
+  async findList(@Query() query: GetPostsQueryDto): Promise<PostListPageDto> {
+    return this.postsService.findListItems(query);
   }
 }
