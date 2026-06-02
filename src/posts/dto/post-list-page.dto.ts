@@ -11,6 +11,7 @@ export class PostListPageDto {
 
   @ApiProperty({
     example: 95,
+    type: Number,
     nullable: true,
     description: '다음 페이지 조회용 커서(postId)',
   })
