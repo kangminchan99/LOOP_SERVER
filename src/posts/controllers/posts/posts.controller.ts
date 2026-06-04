@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Post as HttpPost,
+  Param,
+  ParseIntPipe,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -11,6 +13,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -62,5 +65,20 @@ export class PostsController {
   @Get()
   async findList(@Query() query: GetPostsQueryDto): Promise<PostListPageDto> {
     return this.postsService.findListItems(query);
+  }
+
+  // 게시글 상세 조회 GET /posts/:id
+  @ApiOperation({ summary: '게시글 상세 조회' })
+  @ApiOkResponse({
+    description: '게시글 상세 조회 성공',
+    type: PostResponseDto,
+  })
+  @ApiNotFoundResponse({ description: '게시글을 찾을 수 없습니다.' })
+  @Get(':id')
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<PostResponseDto> {
+    const post = await this.postsService.findOne(id);
+    return PostResponseDto.fromEntity(post);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../../users/entities/user.entity';
@@ -22,6 +22,12 @@ export class PostsService {
       authorId,
     });
     return this.postsRepository.save(post);
+  }
+
+  async findOne(id: number): Promise<Post> {
+    const post = await this.postsRepository.findOneBy({ id });
+    if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+    return post;
   }
 
   // 커서 기반 게시글 목록 조회 (최신순)
