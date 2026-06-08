@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../../users/entities/user.entity';
@@ -73,5 +77,16 @@ export class PostsService {
       nextCursor,
       hasNext,
     };
+  }
+
+  // 게시글 삭제 (작성자만 가능)
+  async remove(userId: number, postId: number): Promise<Post> {
+    const post = await this.postsRepository.findOneBy({ id: postId });
+    if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+    if (post.authorId !== userId) {
+      throw new ForbiddenException('본인의 게시글만 삭제할 수 있습니다.');
+    }
+    await this.postsRepository.delete(postId);
+    return post;
   }
 }

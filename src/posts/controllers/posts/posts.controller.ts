@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Post as HttpPost,
   Param,
@@ -13,6 +14,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -79,6 +81,22 @@ export class PostsController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<PostResponseDto> {
     const post = await this.postsService.findOne(id);
+    return PostResponseDto.fromEntity(post);
+  }
+
+  // 게시글 삭제 DELETE /posts/:id
+  @ApiOperation({ summary: '게시글 삭제' })
+  @ApiBearerAuth()
+  @ApiOkResponse({ description: '게시글 삭제 성공', type: PostResponseDto })
+  @ApiNotFoundResponse({ description: '게시글을 찾을 수 없습니다.' })
+  @ApiForbiddenResponse({ description: '본인의 게시글만 삭제할 수 있습니다.' })
+  @UseGuards(JwtAuthGuard) // 인증된 사용자만 접근 가능
+  @Delete(':id')
+  async remove(
+    @CurrentUser() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<PostResponseDto> {
+    const post = await this.postsService.remove(userId, id);
     return PostResponseDto.fromEntity(post);
   }
 }
