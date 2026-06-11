@@ -4,10 +4,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
 import { UploadModule } from './upload/upload.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -29,7 +29,13 @@ import { UploadModule } from './upload/upload.module';
         password: config.get('DB_PASSWORD'), // .env 파일의 DB_PASSWORD 값
         database: config.get('DB_NAME'), // .env 파일의 DB_NAME 값
         entities: [__dirname + '/**/*.entity{.ts,.js}'], // *.entity.ts 파일을 자동으로 찾아 테이블로 등록
-        synchronize: config.get('NODE_ENV') !== 'production', // 개발환경에서만 Entity 변경 시 DB 자동 반영 (운영은 false)
+        synchronize:
+          config.get('DB_SYNC') === 'true' ||
+          config.get('NODE_ENV') !== 'production', // 개발환경 또는 DB_SYNC=true일 때만 자동 반영
+        ssl:
+          config.get('NODE_ENV') === 'production'
+            ? { rejectUnauthorized: false }
+            : false, // 운영환경에서만 SSL 활성화
       }),
     }),
     UsersModule,

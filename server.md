@@ -245,3 +245,152 @@ controllers: [PostsController],
 ## 22-1. Presigned URL 생성 준비
 
 npm install @aws-sdk/s3-request-presigner
+
+## 23. AWS 연동 EC2 + Docker
+
+- 1. Dockerfile 작성 (로컬)
+     node_modules 전체를 이미지에 담지 않고 빌드 결과물(dist)만 최종 이미지에 포함시켜서 이미지 크기를 크게 줄인다. + .dockerignore생성하여 불필요 파일 제거
+
+- 2. .env.production 작성
+     JWT 랜덤 시크릿 생성 방법 (터미널에서): node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 이 명령어를 두 번 실행해서 JWT_SECRET과 JWT_REFRESH_SECRET에 각각 사용
+
+- 3. AWS RDS 생성 (Database)
+     AWS 콘솔 → RDS → 데이터베이스 생성 클릭 후 아래대로 설정
+
+     생성 방식 - 전체 구성
+
+     엔진 - PostgreSQL 버전: PostgreSQL 18.x (최신 18 선택)
+
+     템플릿 - 샌드 박스(단일 AZ DB 인스턴스) 개발/테스트이므로 비용 절감을 위해
+
+     설정 - DB 인스턴스 식별자: loop-db-prod
+     마스터 사용자 이름: loop
+     마스터 암호: .env.production의 DB_PASSWORD와 동일하게
+
+     인스턴스 유형 - db.t4g.micro
+
+     스토리지 - 20 GiB (기본값 유지)
+     스토리지 자동 조정: 체크 해제 (비용 예측을 위해)
+
+     연결 (중요) - 퍼블릭 액세스: 아니요 ← EC2에서만 접근, 외부 노출 차단
+     VPC: 기본 VPC
+     가용 영역: 기본값
+
+     데이터베이스 이름 (추가 구성 펼치기) - 초기 데이터베이스 이름: loop_db
+
+     생성 완료 후 엔드포인트 주소를 복사해서 .env.production의 DB_HOST에 붙여넣기
+     ex) 예시: loop-db-prod.xxxxxx.ap-northeast-2.rds.amazonaws.com
+
+- 4.  EC2 생성 (AWS 가상 서버)
+      AWS 콘솔 검색창에 EC2 검색 → 인스턴스 시작 클릭
+
+           이름 - loop-server
+
+           AMI (운영체제) - Ubuntu Server 26.04 LTS (64비트 x86)
+           [Docker, Node.js 등 설치 명령어가 인터넷에 Ubuntu 기준으로 가장 많음]
+
+           인스턴스 유형 - t3.micro
+
+           키 페어 (중요)
+           새 키 페어 생성 클릭
+           이름: loop-key
+           유형: RSA
+           형식: .pem
+           → 생성 버튼 → .pem 파일 자동 다운로드
+
+           네트워크 설정 → 보안 그룹 편집
+           규칙 1 (기본): SSH, 포트 22, 내 IP (SSH 접속)
+           규칙 2 추가: 사용자 지정 TCP, 포트 3000, 0.0.0.0/0 (NestJS 서버 포트)
+
+           스토리지
+           8 GiB (기본값 유지)
+
+- 5. RDS 보안 그룹에 EC2 접근 허용 (EC2 → RDS 5432 포트 통신을 허용)
+
+     EC2 보안 그룹 ID 확인
+     EC2 콘솔 → 만든 loop-server 인스턴스 클릭 → 하단 보안 탭 → 보안 그룹 클릭 → 상단에 있는 보안 그룹 ID 복사
+
+     RDS 보안 그룹에 규칙 추가
+
+     RDS 콘솔 → loop-db-prod 클릭 → 연결 & 보안 탭 → VPC 보안 그룹 클릭 → 인바운드 규칙 탭 → 인바운드 규칙 편집 클릭
+
+     규칙 추가
+     유형 - PostgreSQL
+     프로토콜 - TCP
+     포트 - 5432
+     소스 유형 - 사용자 지정
+     소스 - 위에서 복사한 EC2 보안 그룹 ID
+     설명 - EC2에서 RDS 접근
+
+- 6. EC2 SSH 접속 후 Docker 설치 (로컬이랑 EC2 환경이 완전히 동일하게 보장)
+
+     .pem 파일 권한 설정 (최초 1회)
+     chmod 400 ~/Downloads/loop-key.pem
+
+     EC2 접속
+     ssh -i ~/Downloads/loop-key.pem ubuntu@<EC2 퍼블릭 IP>
+     접속 후 Are you sure you want to continue connecting? 나오면 yes 입력
+
+     Docker 설치 (EC2 안에서 실행)
+     sudo apt update && sudo apt upgrade -y
+
+     sudo apt install -y ca-certificates curl gnupg
+
+     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+     sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io
+
+     sudo usermod -aG docker ubuntu
+
+     접속 재시작 (권한 적용)
+     exit
+
+     다시 접속: ssh -i ~/Downloads/loop-key.pem ubuntu@<EC2 퍼블릭 IP>
+
+     Docker 설치 확인: docker --version (Docker version 2x.x.x 나오면 성공이니 exit)
+
+     재접속 후 권한 확인: docker ps (permission denied 없이 빈 목록이 나오면 성공)
+
+- 7.  코드 EC2에 올리고 컨테이너 실행 [로컬 맥 터미널에서 실행 (EC2 접속 끊고 나온 상태)]
+      [실무에선 TypeORM Migration으로 테이블 변경 코드로 관리해야한다]
+
+      .env.production을 EC2로 전송
+      scp -i ~/Downloads/loop-key.pem /Volumes/T7/loop_server/.env.production ubuntu@3.39.xxx.xxx:~/.env.production
+
+      코드를 EC2로 전송
+      scp -i ~/Downloads/loop-key.pem -r /Volumes/T7/loop_server ubuntu@3.39.xxx.xxx:~/loop_server
+
+      EC2 다시 접속
+      ssh -i ~/Downloads/loop-key.pem ubuntu@3.39.xxx.xxx
+
+      .env.production을 프로젝트 폴더로 이동
+      mv ~/.env.production ~/loop_server/.env.production
+
+      프로젝트 폴더로 이동
+      cd ~/loop_server
+
+      Docker 이미지 빌드
+      docker build -t loop-server .
+
+      컨테이너 실행
+      docker run -d \
+      --name loop-server \
+      --env-file .env.production \
+      -p 3000:3000 \
+      --restart always \
+      loop-server
+
+      컨테이너 상태 확인 - docker ps
+
+      서버 로그 확인 - docker logs loop-server
+      [AWS CloudWatch 또는 Datadog / Sentry / Grafana]
+
+      RDS 테이블 확인 방법 (EC2 터미널에서 직접 접속)
+      sudo apt install -y postgresql-client
+      psql -h <RDS 엔드포인트> -U loop -d loop*db
+      \dt -- 테이블 목록 확인
+      SELECT * FROM users;
+      SELECT \_ FROM posts;
+      \q -- 종료

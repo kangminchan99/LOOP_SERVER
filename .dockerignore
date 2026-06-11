@@ -1,0 +1,28 @@
+# 빌드 결과물 (컨테이너 안에서 새로 빌드하므로 불필요)
+dist/
+
+# 로컬 node_modules (컨테이너 안에서 npm ci로 재설치)
+node_modules/
+
+# 환경변수 (절대 이미지에 포함되면 안 됨)
+.env*
+
+# 로컬 개발용 파일
+docker-compose.yml
+*.log
+logs/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# 테스트
+test/
+**/*.spec.ts
+
+# macOS
+.DS_Store
