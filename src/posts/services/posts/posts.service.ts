@@ -89,4 +89,24 @@ export class PostsService {
     await this.postsRepository.delete(postId);
     return post;
   }
+
+  // 게시글 수정 (작성자만 가능)
+  async update(
+    userId: number,
+    postId: number,
+    dto: Partial<CreatePostDto>,
+  ): Promise<Post> {
+    const post = await this.postsRepository.findOneBy({ id: postId });
+    if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+    if (post.authorId !== userId) {
+      throw new ForbiddenException('본인의 게시글만 수정할 수 있습니다.');
+    }
+    if (dto.title !== undefined) {
+      post.title = dto.title.trim();
+    }
+    if (dto.content !== undefined) {
+      post.content = dto.content.trim();
+    }
+    return this.postsRepository.save(post);
+  }
 }

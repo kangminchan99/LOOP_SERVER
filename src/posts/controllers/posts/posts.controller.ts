@@ -6,6 +6,7 @@ import {
   Post as HttpPost,
   Param,
   ParseIntPipe,
+  Patch,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -27,6 +28,7 @@ import { CreatePostDto } from '../../dto/create-dto';
 import { GetPostsQueryDto } from '../../dto/get-posts-query.dto';
 import { PostListPageDto } from '../../dto/post-list-page.dto';
 import { PostResponseDto } from '../../dto/post-response.dto';
+import { UpdatePostDto } from '../../dto/update-dto';
 import { PostsService } from '../../services/posts/posts.service';
 
 @ApiTags('posts') // Swagger 그룹 이름
@@ -97,6 +99,30 @@ export class PostsController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<PostResponseDto> {
     const post = await this.postsService.remove(userId, id);
+    return PostResponseDto.fromEntity(post);
+  }
+
+  // 게시글 수정 PATCH /posts/:id
+  @ApiOperation({ summary: '게시글 수정' })
+  @ApiBearerAuth()
+  @ApiBody({ type: UpdatePostDto })
+  @ApiOkResponse({ description: '게시글 수정 성공', type: PostResponseDto })
+  @ApiBadRequestResponse({
+    description: '요청 바디 검증 실패',
+  })
+  @ApiUnauthorizedResponse({
+    description: '인증 토큰이 없거나 유효하지 않습니다.',
+  })
+  @ApiNotFoundResponse({ description: '게시글을 찾을 수 없습니다.' })
+  @ApiForbiddenResponse({ description: '본인의 게시글만 수정할 수 있습니다.' })
+  @UseGuards(JwtAuthGuard) // 인증된 사용자만 접근 가능
+  @Patch(':id')
+  async update(
+    @CurrentUser() userId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePostDto,
+  ): Promise<PostResponseDto> {
+    const post = await this.postsService.update(userId, id, dto);
     return PostResponseDto.fromEntity(post);
   }
 }
