@@ -31,6 +31,9 @@ export class UserResponseDto {
   })
   updatedAt!: Date;
 
+  @ApiProperty({ example: 120, description: '유저 보유 포인트' })
+  point!: number;
+
   static fromEntity(user: User): UserResponseDto {
     return {
       id: user.id,
@@ -39,6 +42,7 @@ export class UserResponseDto {
       profileImageUrl: user.profileImageUrl,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      point: user.point,
     };
   }
 }

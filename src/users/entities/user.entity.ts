@@ -48,4 +48,11 @@ export class User {
   })
   @UpdateDateColumn()
   updatedAt!: Date;
+
+  @ApiProperty({
+    example: 120,
+    description: '유저 보유 포인트',
+  })
+  @Column({ default: 0 })
+  point!: number;
 }

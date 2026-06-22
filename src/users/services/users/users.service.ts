@@ -57,6 +57,7 @@ export class UsersService {
       email,
       password: hashedPassword,
       nickname,
+      point: 0, // 유저 생성 시 기본 포인트 0
     });
 
     // save: 실제 DB insert 실행
@@ -80,6 +81,15 @@ export class UsersService {
   ): Promise<User> {
     const user = await this.findOne(userId);
     user.profileImageUrl = profileImageUrl;
+    return this.usersRepository.save(user);
+  }
+
+  // 유저 포인트 갱신
+  async addPoint(userId: number, point: number): Promise<User> {
+    const user = await this.findOne(userId);
+
+    user.point = (user.point ?? 0) + point;
+
     return this.usersRepository.save(user);
   }
 }
