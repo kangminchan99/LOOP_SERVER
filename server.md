@@ -394,3 +394,19 @@ npm install @aws-sdk/s3-request-presigner
       SELECT * FROM users;
       SELECT \_ FROM posts;
       \q -- 종료
+
+## 24. 소셜 로그인 (이메일 로그인 → 이메일로 사용자를 찾음 → user.id로 JWT 발급 카카오 로그인 → 카카오 ID로 사용자를 찾음 → user.id로 JWT 발급)
+
+- 1. openssl rand -hex 64 명령어로 Access, Refresh Token 저장
+
+- 2. auth.service.ts 수정
+
+- 3. social_accounts 엔티티 설계
+
+- 4. SocialAccount Repository 등록
+
+- 5. 카카오 로그인 요청 DTO 생성
+
+- 6. 카카오 앱 ID 환경변수 설정 및 로그인 활성화(카카오 Developers 콘솔)
+
+- 7. KakaoAuthService 생성 후 카카오 로그인 구현

@@ -15,12 +15,12 @@ export class User {
   id!: number;
 
   @ApiProperty({ example: 'test1@example.com', description: '유저 이메일' })
-  @Column({ unique: true })
-  email!: string;
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  email!: string | null;
 
   @ApiProperty({ example: '1234abcd', description: '유저 비밀번호' })
-  @Column()
-  password!: string;
+  @Column({ type: 'varchar', nullable: true })
+  password!: string | null;
 
   @ApiProperty({ example: 'minchan', description: '유저 닉네임' })
   @Column({ nullable: true })

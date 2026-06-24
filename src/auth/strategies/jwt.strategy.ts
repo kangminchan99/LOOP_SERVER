@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -16,9 +16,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   // 3) 토큰 검증 성공 후 실행
-  // payload = { sub: userId, email: 'user@example.com' }
+  // payload = { sub: userId, type: 'access' }
   // 반환값이 Request.user에 붙음
-  validate(payload: { sub: number; email: string }) {
-    return { id: payload.sub, email: payload.email };
+  validate(payload: { sub: number; type: string }) {
+    // Access Token의 종류까지 확인
+    if (payload.type !== 'access') {
+      throw new UnauthorizedException('Access Token이 아닙니다.');
+    }
+    return { id: payload.sub };
   }
 }

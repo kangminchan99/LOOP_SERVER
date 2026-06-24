@@ -5,13 +5,19 @@ export class UserResponseDto {
   @ApiProperty({ example: 1, description: '유저 ID' })
   id!: number;
 
-  @ApiProperty({ example: 'test1@example.com', description: '유저 이메일' })
-  email!: string;
+  @ApiProperty({
+    type: String,
+    example: 'test1@example.com',
+    description: '유저 이메일',
+    nullable: true,
+  })
+  email!: string | null;
 
   @ApiProperty({ example: 'minchan', description: '유저 닉네임' })
   nickname!: string;
 
   @ApiProperty({
+    type: String,
     example:
       'https://loop-bucket-dev.s3.ap-northeast-2.amazonaws.com/profiles/2026/05/example.webp',
     description: '프로필 이미지 URL',

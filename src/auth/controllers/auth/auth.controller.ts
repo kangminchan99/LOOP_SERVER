@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -6,10 +6,12 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthTokenResponseDto } from '../../dto/auth-token-response.dto';
+import { KakaoLoginDto } from '../../dto/kakao-login.dto';
 import { LoginDto } from '../../dto/login.dto';
 import { RefreshTokenDto } from '../../dto/refresh-token.dto';
 import { RegisterDto } from '../../dto/register.dto';
@@ -41,8 +43,30 @@ export class AuthController {
     description: '이메일 또는 비밀번호가 올바르지 않음',
   }) // 400
   @Post('login') // POST /auth/login
+  @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto): Promise<AuthTokenResponseDto> {
     return this.authService.login(dto);
+  }
+
+  @ApiOperation({ summary: '카카오 로그인' })
+  @ApiBody({ type: KakaoLoginDto })
+  @ApiOkResponse({
+    description: '카카오 로그인 성공',
+    type: AuthTokenResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: '유효하지 않은 카카오 토큰',
+  })
+  @ApiConflictResponse({
+    description: '동일 이메일로 가입된 기존 계정 존재',
+  })
+  @ApiServiceUnavailableResponse({
+    description: '카카오 인증 서버 연결 실패',
+  })
+  @Post('kakao')
+  @HttpCode(HttpStatus.OK)
+  kakaoLogin(@Body() dto: KakaoLoginDto): Promise<AuthTokenResponseDto> {
+    return this.authService.kakaoLogin(dto);
   }
 
   @ApiOperation({ summary: '토큰 리프레쉬' })
@@ -54,6 +78,7 @@ export class AuthController {
   @ApiBadRequestResponse({ description: '요청 값 검증 실패' }) // 400
   @ApiUnauthorizedResponse({ description: '유효하지 않은 Refresh Token' }) // 401
   @Post('refresh') // POST /auth/refresh
+  @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: RefreshTokenDto): Promise<AuthTokenResponseDto> {
     return this.authService.refresh(dto);
   }

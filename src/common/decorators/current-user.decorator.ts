@@ -5,7 +5,7 @@ export const CurrentUser = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): number => {
     const request = ctx
       .switchToHttp()
-      .getRequest<Request & { user: { id: number; email: string } }>();
+      .getRequest<Request & { user: { id: number } }>();
     return request.user.id; // JwtStrategy에서 붙인 user.id
   },
 );
