@@ -16,6 +16,7 @@ import { LoginDto } from '../../dto/login.dto';
 import { RefreshTokenDto } from '../../dto/refresh-token.dto';
 import { RegisterDto } from '../../dto/register.dto';
 import { AuthService } from '../../services/auth/auth.service';
+import { GoogleLoginDto } from '../../dto/google-login.dto';
 
 @ApiTags('auth') // Swagger에서 auth 그룹으로 표시
 @Controller('auth') // 기본 경로: /auth
@@ -81,5 +82,26 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: RefreshTokenDto): Promise<AuthTokenResponseDto> {
     return this.authService.refresh(dto);
+  }
+
+  @ApiOperation({ summary: '구글 로그인' })
+  @ApiBody({ type: GoogleLoginDto })
+  @ApiOkResponse({
+    description: '구글 로그인 성공',
+    type: AuthTokenResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: '유효하지 않은 구글 토큰',
+  })
+  @ApiConflictResponse({
+    description: '동일 이메일로 가입된 기존 계정 존재',
+  })
+  @ApiServiceUnavailableResponse({
+    description: '구글 인증 서버 연결 실패',
+  })
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  googleLogin(@Body() dto: GoogleLoginDto): Promise<AuthTokenResponseDto> {
+    return this.authService.googleLogin(dto);
   }
 }

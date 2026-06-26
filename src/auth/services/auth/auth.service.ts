@@ -13,6 +13,7 @@ import { UploadService } from '../../../upload/services/upload/upload.service';
 import { UserResponseDto } from '../../../users/dto/user-response.dto';
 import { User } from '../../../users/entities/user.entity';
 import { AuthTokenResponseDto } from '../../dto/auth-token-response.dto';
+import { KakaoLoginDto } from '../../dto/kakao-login.dto';
 import { LoginDto } from '../../dto/login.dto';
 import { RefreshTokenDto } from '../../dto/refresh-token.dto';
 import { RegisterDto } from '../../dto/register.dto';
@@ -20,8 +21,9 @@ import {
   SocialAccount,
   SocialProvider,
 } from '../../entities/social-account.entity';
+import { GoogleAuthService } from '../google/google-auth.service';
 import { KakaoAuthService } from '../kakao/kakao-auth.service';
-import { KakaoLoginDto } from '../../dto/kakao-login.dto';
+import { GoogleLoginDto } from '../../dto/google-login.dto';
 
 @Injectable() // Nest DI 컨테이너에 서비스로 등록
 export class AuthService {
@@ -34,6 +36,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly uploadService: UploadService,
     private readonly kakaoAuthService: KakaoAuthService,
+    private readonly googleAuthService: GoogleAuthService,
   ) {}
 
   // 회원가입
@@ -269,5 +272,86 @@ export class AuthService {
       dto.profileImageUrl,
     );
     return dto;
+  }
+
+  // 구글 로그인
+  async googleLogin(dto: GoogleLoginDto): Promise<AuthTokenResponseDto> {
+    // 1. 구글 id 토큰 검증 및 프로필 조회
+    const profile = await this.googleAuthService.authenticate(
+      dto.googleIdToken,
+    );
+
+    // 2. 기존 구글 계정 조회
+    const existingSocialAccount = await this.socialAccountsRepository.findOne({
+      where: {
+        provider: SocialProvider.GOOGLE,
+        providerUserId: profile.id,
+      },
+      relations: {
+        user: true,
+      },
+    });
+
+    // 3. 이미 가입한 구글 사용자라면 바로 로그인
+    if (existingSocialAccount) {
+      const { accessToken, refreshToken } = this.issueTokens(
+        existingSocialAccount.user,
+      );
+
+      return {
+        user: await this.toUserResponseDto(existingSocialAccount.user),
+        accessToken,
+        refreshToken,
+      };
+    }
+
+    // 4. 동일 이메일의 기존 계정이 있는지 확인
+    if (profile.email) {
+      const existingEmailUser = await this.usersRepository.findOne({
+        where: { email: profile.email },
+      });
+
+      if (existingEmailUser) {
+        throw new ConflictException(
+          '같은 이메일로 가입된 계정이 있습니다. 기존 계정에 로그인한 뒤 구글 계정을 연결해 주세요.',
+        );
+      }
+    }
+
+    // 5. User와 SocialAccount를 하나의 트랜잭션으로 생성
+    const savedUser = await this.usersRepository.manager.transaction(
+      async (manager) => {
+        const usersRepository = manager.getRepository(User);
+        const socialAccountsRepository = manager.getRepository(SocialAccount);
+
+        const user = usersRepository.create({
+          email: profile.email,
+          password: null,
+          nickname: profile.nickname ?? '구글 사용자',
+          profileImageUrl: profile.profileImageUrl,
+        });
+
+        const newUser = await usersRepository.save(user);
+
+        const socialAccount = socialAccountsRepository.create({
+          userId: newUser.id,
+          provider: SocialProvider.GOOGLE,
+          providerUserId: profile.id,
+        });
+
+        await socialAccountsRepository.save(socialAccount);
+
+        return newUser;
+      },
+    );
+
+    // 6. Loop JWT 발급
+    const { accessToken, refreshToken } = this.issueTokens(savedUser);
+
+    return {
+      user: await this.toUserResponseDto(savedUser),
+      accessToken,
+      refreshToken,
+    };
   }
 }

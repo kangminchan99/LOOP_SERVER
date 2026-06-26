@@ -5,11 +5,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UploadModule } from '../upload/upload.module';
 import { User } from '../users/entities/user.entity';
 import { AuthController } from './controllers/auth/auth.controller';
+import { SocialAccount } from './entities/social-account.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthService } from './services/auth/auth.service';
-import { JwtStrategy } from './strategies/jwt.strategy';
-import { SocialAccount } from './entities/social-account.entity';
+import { GoogleAuthService } from './services/google/google-auth.service';
 import { KakaoAuthService } from './services/kakao/kakao-auth.service';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
@@ -26,7 +27,13 @@ import { KakaoAuthService } from './services/kakao/kakao-auth.service';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, KakaoAuthService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtAuthGuard,
+    KakaoAuthService,
+    GoogleAuthService,
+  ],
   exports: [JwtAuthGuard],
   controllers: [AuthController],
 })

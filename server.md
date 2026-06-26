@@ -395,7 +395,7 @@ npm install @aws-sdk/s3-request-presigner
       SELECT \_ FROM posts;
       \q -- 종료
 
-## 24. 소셜 로그인 (이메일 로그인 → 이메일로 사용자를 찾음 → user.id로 JWT 발급 카카오 로그인 → 카카오 ID로 사용자를 찾음 → user.id로 JWT 발급)
+## 24. 소셜 로그인(kakao) (이메일 로그인 → 이메일로 사용자를 찾음 → user.id로 JWT 발급 카카오 로그인 → 카카오 ID로 사용자를 찾음 → user.id로 JWT 발급)
 
 - 1. openssl rand -hex 64 명령어로 Access, Refresh Token 저장
 
@@ -410,3 +410,15 @@ npm install @aws-sdk/s3-request-presigner
 - 6. 카카오 앱 ID 환경변수 설정 및 로그인 활성화(카카오 Developers 콘솔)
 
 - 7. KakaoAuthService 생성 후 카카오 로그인 구현
+
+## 24-1. 소셜 로그인(google)
+
+- 1. google-auth-library 설치
+- 2. .env에 GOOGLE_CLIENT_ID 추가
+- 3. SocialProvider에 GOOGLE 추가
+- 4. GoogleLoginDto 생성
+- 5. GoogleAuthService 생성
+- 6. AuthService.googleLogin() 추가
+- 7. AuthController에 POST /auth/google 추가
+- 8. AuthModule에 GoogleAuthService 등록
+- 9. Swagger/build 확인

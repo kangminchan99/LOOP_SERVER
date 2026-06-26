@@ -12,6 +12,7 @@ import { User } from '../../users/entities/user.entity';
 
 export enum SocialProvider {
   KAKAO = 'kakao',
+  GOOGLE = 'google',
 }
 
 @Entity('social_accounts')
