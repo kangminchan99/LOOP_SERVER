@@ -24,3 +24,8 @@ logs/
 
 # TypeScript 캐시
 *.tsbuildinfo
+
+# Firebase Admin SDK private keys
+firebase-service-account.json
+*service-account*.json
+*firebase-adminsdk*.json

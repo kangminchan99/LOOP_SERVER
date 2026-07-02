@@ -422,3 +422,12 @@ npm install @aws-sdk/s3-request-presigner
 - 7. AuthController에 POST /auth/google 추가
 - 8. AuthModule에 GoogleAuthService 등록
 - 9. Swagger/build 확인
+
+## 25. FCM (알림)
+
+- 1. firebase-admin 설치
+- 2. Firebase Admin 초기화 서비스 만들기
+- 3. FCM 토큰 저장 엔티티 만들기
+- 4. FCM 토큰 등록/삭제 API 만들기
+- 5. 푸시 발송 서비스 만들기
+- 6. 나중에 이벤트 발생 시 발송 연결
