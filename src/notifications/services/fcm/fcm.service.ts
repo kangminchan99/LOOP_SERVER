@@ -66,4 +66,36 @@ export class FcmService implements OnModuleInit {
       data: params.data,
     });
   }
+
+  async sendToTokens(params: {
+    tokens: string[];
+    title: string;
+    body: string;
+    data?: Record<string, string>;
+  }): Promise<void> {
+    const chunks = this.chunk(params.tokens, 500);
+
+    for (const tokens of chunks) {
+      const messages = tokens.map((token) => ({
+        token,
+        notification: {
+          title: params.title,
+          body: params.body,
+        },
+        data: params.data,
+      }));
+
+      await getMessaging().sendEach(messages);
+    }
+  }
+
+  private chunk<T>(items: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+
+    for (let i = 0; i < items.length; i += size) {
+      chunks.push(items.slice(i, i + size));
+    }
+
+    return chunks;
+  }
 }

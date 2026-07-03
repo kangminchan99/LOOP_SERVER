@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { NotificationsService } from '../../../notifications/services/notifications/notifications.service';
 import { User } from '../../../users/entities/user.entity';
 import { CreatePostDto } from '../../dto/create-dto';
 import { GetPostsQueryDto } from '../../dto/get-posts-query.dto';
@@ -17,6 +18,7 @@ export class PostsService {
   constructor(
     @InjectRepository(Post)
     private readonly postsRepository: Repository<Post>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(authorId: number, dto: CreatePostDto): Promise<Post> {
@@ -25,7 +27,17 @@ export class PostsService {
       content: dto.content.trim(),
       authorId,
     });
-    return this.postsRepository.save(post);
+    const savedPost = await this.postsRepository.save(post);
+
+    void this.notificationsService
+      .sendNewPostNotification({
+        postId: savedPost.id,
+        title: savedPost.title,
+        authorId,
+      })
+      .catch(() => undefined);
+
+    return savedPost;
   }
 
   async findOne(id: number): Promise<Post> {
