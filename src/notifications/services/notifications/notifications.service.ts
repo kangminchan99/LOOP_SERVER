@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { BroadcastNotificationDto } from '../../dto/broadcast-notification.dto';
 import { DeleteFcmTokenDto } from '../../dto/delete-fcm-token.dto';
 import { RegisterFcmTokenDto } from '../../dto/register-fcm-token.dto';
 import { FcmToken } from '../../entities/fcm-token.entity';
@@ -75,6 +76,29 @@ export class NotificationsService {
         type: 'new_post',
         postId: String(params.postId),
         authorId: String(params.authorId),
+      },
+    });
+  }
+
+  async broadcastNotification(dto: BroadcastNotificationDto): Promise<void> {
+    const fcmTokens = await this.fcmTokensRepository.find({
+      select: {
+        token: true,
+      },
+    });
+
+    const tokens = fcmTokens.map((item) => item.token);
+
+    if (tokens.length === 0) {
+      return;
+    }
+
+    await this.fcmService.sendToTokens({
+      tokens,
+      title: dto.title,
+      body: dto.body,
+      data: {
+        type: dto.type ?? 'broadcast',
       },
     });
   }

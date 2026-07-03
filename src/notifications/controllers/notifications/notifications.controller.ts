@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { BroadcastNotificationDto } from '../../dto/broadcast-notification.dto';
 import { DeleteFcmTokenDto } from '../../dto/delete-fcm-token.dto';
 import { RegisterFcmTokenDto } from '../../dto/register-fcm-token.dto';
 import { NotificationsService } from '../../services/notifications/notifications.service';
@@ -54,6 +55,20 @@ export class NotificationsController {
     @Body() dto: DeleteFcmTokenDto,
   ): Promise<{ success: true }> {
     await this.notificationsService.deleteFcmToken(userId, dto);
+
+    return { success: true };
+  }
+
+  @ApiOperation({ summary: '전체 푸시 발송' })
+  @ApiBody({ type: BroadcastNotificationDto })
+  @ApiOkResponse({ description: '전체 푸시 발송 성공' })
+  @ApiUnauthorizedResponse({ description: '인증 실패' })
+  @Post('broadcast')
+  @HttpCode(HttpStatus.OK)
+  async broadcast(
+    @Body() dto: BroadcastNotificationDto,
+  ): Promise<{ success: true }> {
+    await this.notificationsService.broadcastNotification(dto);
 
     return { success: true };
   }
