@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RegisterFcmTokenDto } from '../../dto/register-fcm-token.dto';
 import { FcmToken } from '../../entities/fcm-token.entity';
+import { DeleteFcmTokenDto } from '../../dto/delete-fcm-token.dto';
 
 @Injectable()
 export class NotificationsService {
@@ -36,5 +37,12 @@ export class NotificationsService {
     });
 
     await this.fcmTokensRepository.save(fcmToken);
+  }
+
+  async deleteFcmToken(userId: number, dto: DeleteFcmTokenDto): Promise<void> {
+    await this.fcmTokensRepository.delete({
+      userId,
+      token: dto.token,
+    });
   }
 }
