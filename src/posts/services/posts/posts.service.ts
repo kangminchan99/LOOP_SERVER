@@ -5,20 +5,20 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotificationsService } from '../../../notifications/services/notifications/notifications.service';
 import { User } from '../../../users/entities/user.entity';
 import { CreatePostDto } from '../../dto/create-dto';
 import { GetPostsQueryDto } from '../../dto/get-posts-query.dto';
 import { PostListItemDto } from '../../dto/post-list-item-dto';
 import { PostListPageDto } from '../../dto/post-list-page.dto';
 import { Post } from '../../entities/post.entity';
+import { NotificationQueueService } from '../../../queues/notification-queue/services/notification-queue/notification-queue.service';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectRepository(Post)
     private readonly postsRepository: Repository<Post>,
-    private readonly notificationsService: NotificationsService,
+    private readonly notificationQueueService: NotificationQueueService,
   ) {}
 
   async create(authorId: number, dto: CreatePostDto): Promise<Post> {
@@ -29,8 +29,8 @@ export class PostsService {
     });
     const savedPost = await this.postsRepository.save(post);
 
-    void this.notificationsService
-      .sendNewPostNotification({
+    void this.notificationQueueService
+      .addNewPostNotificationJob({
         postId: savedPost.id,
         title: savedPost.title,
         authorId,

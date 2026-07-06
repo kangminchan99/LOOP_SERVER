@@ -1,15 +1,17 @@
 import { Module } from '@nestjs/common';
 // ConfigModule, ConfigService 추가 (환경변수 로드)
+import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PostsModule } from './posts/posts.module';
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
-import { AttendanceModule } from './attendance/attendance.module';
-import { NotificationsModule } from './notifications/notifications.module';
+import { NotificationQueueModule } from './queues/notification-queue/notification-queue.module';
 
 @Module({
   imports: [
@@ -19,6 +21,18 @@ import { NotificationsModule } from './notifications/notifications.module';
       // 모든 모듈에서 별도 import 없이 환경변수 사용 가능
       isGlobal: true,
     }),
+
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.getOrThrow<string>('REDIS_HOST'),
+          port: Number(config.getOrThrow<string>('REDIS_PORT')),
+        },
+      }),
+    }),
+
     // forRootAsync - 환경변수가 로드된 후 DB 연결하도록 비동기로 설정
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule], // ConfigModule에서 환경변수를 가져올 수 있도록 등록
@@ -46,6 +60,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     UploadModule,
     AttendanceModule,
     NotificationsModule,
+    NotificationQueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],

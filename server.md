@@ -431,3 +431,15 @@ npm install @aws-sdk/s3-request-presigner
 - 4. FCM 토큰 등록/삭제 API 만들기
 - 5. 푸시 발송 서비스 만들기
 - 6. 나중에 이벤트 발생 시 발송 연결
+
+## 26. FCM 고도화 (Redis)
+
+[게시글 작성 시 FCM 푸시 발송을 Redis Queue 기반 백그라운드 작업으로 분리]
+
+- 1. Redis Docker 설정
+- 2. BullMQ/Nest 패키지 설치
+- 3. QueueModule 생성
+- 4. NotificationQueueService 생성
+- 5. NotificationProcessor 생성
+- 6. PostsService에서 직접 FCM 호출 제거하고 queue add로 변경
+- 7. Worker가 FCM 발송 처리
