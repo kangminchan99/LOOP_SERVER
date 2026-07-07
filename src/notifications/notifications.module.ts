@@ -4,9 +4,10 @@ import { NotificationsController } from './controllers/notifications/notificatio
 import { FcmToken } from './entities/fcm-token.entity';
 import { FcmService } from './services/fcm/fcm.service';
 import { NotificationsService } from './services/notifications/notifications.service';
+import { Notification } from './entities/notification.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([FcmToken])],
+  imports: [TypeOrmModule.forFeature([FcmToken, Notification])],
   controllers: [NotificationsController],
   providers: [FcmService, NotificationsService],
   exports: [FcmService, NotificationsService],

@@ -443,3 +443,11 @@ npm install @aws-sdk/s3-request-presigner
 - 5. NotificationProcessor 생성
 - 6. PostsService에서 직접 FCM 호출 제거하고 queue add로 변경
 - 7. Worker가 FCM 발송 처리
+
+## 27. 알림 목록 + 읽음 처리 + 읽지 않은 개수
+
+- 1. Notification 엔티티 만들기
+- 2. NotificationsModule에 Notification 엔티티 등록
+- 3. NotificationResponseDto 만들기
+- 4. NotificationsService에 알림 로직 추가
+- 5. NotificationsController에 알림 API 추가
