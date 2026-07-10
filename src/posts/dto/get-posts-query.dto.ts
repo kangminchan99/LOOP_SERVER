@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class GetPostsQueryDto {
   @ApiPropertyOptional({
@@ -22,9 +22,9 @@ export class GetPostsQueryDto {
   limit: number = 20;
 
   @ApiPropertyOptional({
-    example: 120,
-    description: '다음 페이지 커서(postId)',
-    type: Number,
+    example: '2026-07-10T12:00:00.000Z_120',
+    description: '다음 페이지 커서(createdAt_postId)',
+    type: String,
   })
   @IsOptional()
   @Transform(({ value }) => {
@@ -32,9 +32,8 @@ export class GetPostsQueryDto {
       return undefined;
     }
 
-    return Number(value);
+    return String(value);
   })
-  @IsInt()
-  @Min(1)
-  cursor?: number;
+  @IsString()
+  cursor?: string;
 }

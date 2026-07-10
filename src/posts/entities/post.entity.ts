@@ -10,6 +10,7 @@ import {
 
 // TypeORM 엔티티: posts 테이블과 1:1로 매핑
 @Entity('posts')
+@Index(['createdAt', 'id'])
 export class Post {
   // Swagger 응답 문서에 표시할 필드 설명
   @ApiProperty({ example: 1, description: '게시글 ID' })
@@ -38,7 +39,7 @@ export class Post {
     description: '생성 시각',
   })
   // INSERT 시점에 자동 저장
-  @CreateDateColumn()
+  @CreateDateColumn({ precision: 3 })
   createdAt!: Date;
 
   @ApiProperty({
@@ -46,6 +47,6 @@ export class Post {
     description: '수정 시각',
   })
   // UPDATE 시점에 자동 갱신
-  @UpdateDateColumn()
+  @UpdateDateColumn({ precision: 3 })
   updatedAt!: Date;
 }

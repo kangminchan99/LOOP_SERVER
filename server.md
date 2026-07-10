@@ -451,3 +451,16 @@ npm install @aws-sdk/s3-request-presigner
 - 3. NotificationResponseDto 만들기
 - 4. NotificationsService에 알림 로직 추가
 - 5. NotificationsController에 알림 API 추가
+
+## 대용량 데이터 처리 및 동시 요청 성능 개선
+
+- 1. 대량 seed 데이터 만들기
+- 2. 게시글 목록 조회 성능 확인
+- 3. 커서 페이지네이션 점검/개선
+- 4. DB 인덱스 추가
+- 5. 검색 API 성능 개선
+- 6. 동시 요청 테스트
+- 7. Redis 캐시 적용
+- 8. BullMQ로 무거운 작업 분리
+- 9. DB connection pool 조정
+- 10. API rate limit 적용

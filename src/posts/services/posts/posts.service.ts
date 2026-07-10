@@ -5,13 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { NotificationQueueService } from '../../../queues/notification-queue/services/notification-queue/notification-queue.service';
 import { User } from '../../../users/entities/user.entity';
 import { CreatePostDto } from '../../dto/create-dto';
 import { GetPostsQueryDto } from '../../dto/get-posts-query.dto';
 import { PostListItemDto } from '../../dto/post-list-item-dto';
 import { PostListPageDto } from '../../dto/post-list-page.dto';
 import { Post } from '../../entities/post.entity';
-import { NotificationQueueService } from '../../../queues/notification-queue/services/notification-queue/notification-queue.service';
 
 @Injectable()
 export class PostsService {
@@ -57,11 +57,20 @@ export class PostsService {
       .addSelect('post.title', 'title')
       .addSelect('user.nickname', 'authorNickname')
       .addSelect('post.createdAt', 'createdAt')
-      .orderBy('post.id', 'DESC')
+      .orderBy('post.createdAt', 'DESC')
+      .addOrderBy('post.id', 'DESC')
       .take(limit + 1);
 
     if (cursor) {
-      qb.where('post.id < :cursor', { cursor });
+      const [cursorCreatedAt, cursorPostId] = cursor.split('_');
+
+      qb.where(
+        '(post.createdAt < :cursorCreatedAt OR (post.createdAt = :cursorCreatedAt AND post.id < :cursorPostId))',
+        {
+          cursorCreatedAt: new Date(cursorCreatedAt),
+          cursorPostId: Number(cursorPostId),
+        },
+      );
     }
 
     const rows = await qb.getRawMany<{
@@ -81,8 +90,12 @@ export class PostsService {
       createdAt: row.createdAt,
     }));
 
+    const lastItem = items[items.length - 1];
+
     const nextCursor =
-      hasNext && items.length > 0 ? items[items.length - 1].postId : null;
+      hasNext && lastItem
+        ? `${lastItem.createdAt.toISOString()}_${lastItem.postId}`
+        : null;
 
     return {
       items,
