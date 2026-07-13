@@ -459,8 +459,24 @@ npm install @aws-sdk/s3-request-presigner
 - 3. 커서 페이지네이션 점검/개선
 - 4. DB 인덱스 추가
 - 5. 검색 API 성능 개선
-- 6. 동시 요청 테스트
+- 6. 동시 요청 테스트 (npx autocannon -c 100 -d 30 "http://127.0.0.1:3000/posts?limit=20")
+     -c 100
+     → 동시에 100개 연결
+
+     -d 30
+     → 30초 동안 테스트
+
+     /posts?limit=20
+     → 게시글 목록 API 테스트
+
+     [서버 응답 속도와 처리량이 어느 정도인지 확인]
+
 - 7. Redis 캐시 적용
+     1. ioredis 확인
+     2. CacheModule 생성
+     3. CacheService 생성
+     4. AppModule에 CacheModule 등록
+     5. build 확인
 - 8. BullMQ로 무거운 작업 분리
 - 9. DB connection pool 조정
 - 10. API rate limit 적용

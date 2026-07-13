@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CacheService } from '../../../cache/cache.service';
 import { NotificationQueueService } from '../../../queues/notification-queue/services/notification-queue/notification-queue.service';
 import { User } from '../../../users/entities/user.entity';
 import { CreatePostDto } from '../../dto/create-dto';
@@ -19,7 +20,12 @@ export class PostsService {
     @InjectRepository(Post)
     private readonly postsRepository: Repository<Post>,
     private readonly notificationQueueService: NotificationQueueService,
+    private readonly cacheService: CacheService,
   ) {}
+
+  private async invalidatePostListCache(): Promise<void> {
+    await this.cacheService.deleteByPattern('posts:list:*');
+  }
 
   async create(authorId: number, dto: CreatePostDto): Promise<Post> {
     const post = this.postsRepository.create({
@@ -28,6 +34,8 @@ export class PostsService {
       authorId,
     });
     const savedPost = await this.postsRepository.save(post);
+
+    await this.invalidatePostListCache();
 
     void this.notificationQueueService
       .addNewPostNotificationJob({
@@ -49,6 +57,16 @@ export class PostsService {
   // 커서 기반 게시글 목록 조회 (최신순)
   async findListItems(query: GetPostsQueryDto): Promise<PostListPageDto> {
     const { cursor, limit = 20 } = query;
+
+    const cacheCursor = cursor ?? 'first';
+    const cacheKey = `posts:list:limit:${limit}:cursor:${cacheCursor}`;
+
+    const cachedPage =
+      await this.cacheService.getJson<PostListPageDto>(cacheKey);
+
+    if (cachedPage) {
+      return cachedPage;
+    }
 
     const qb = this.postsRepository
       .createQueryBuilder('post')
@@ -97,11 +115,15 @@ export class PostsService {
         ? `${lastItem.createdAt.toISOString()}_${lastItem.postId}`
         : null;
 
-    return {
+    const result = {
       items,
       nextCursor,
       hasNext,
     };
+
+    await this.cacheService.setJson(cacheKey, result, 10);
+
+    return result;
   }
 
   // 게시글 삭제 (작성자만 가능)
@@ -112,6 +134,9 @@ export class PostsService {
       throw new ForbiddenException('본인의 게시글만 삭제할 수 있습니다.');
     }
     await this.postsRepository.delete(postId);
+
+    await this.invalidatePostListCache();
+
     return post;
   }
 
@@ -132,6 +157,11 @@ export class PostsService {
     if (dto.content !== undefined) {
       post.content = dto.content.trim();
     }
-    return this.postsRepository.save(post);
+
+    const updatedPost = await this.postsRepository.save(post);
+
+    await this.invalidatePostListCache();
+
+    return updatedPost;
   }
 }

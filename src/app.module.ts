@@ -9,9 +9,10 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PostsModule } from './posts/posts.module';
+import { NotificationQueueModule } from './queues/notification-queue/notification-queue.module';
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
-import { NotificationQueueModule } from './queues/notification-queue/notification-queue.module';
+import { CacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
@@ -52,8 +53,20 @@ import { NotificationQueueModule } from './queues/notification-queue/notificatio
           config.get('NODE_ENV') === 'production'
             ? { rejectUnauthorized: false }
             : false, // 운영환경에서만 SSL 활성화
+        extra: {
+          // PostgreSQL connection pool 설정
+          // 운영 환경에서 DB 연결 수를 예측 가능하게 관리하기 위해 명시
+          max: Number(config.get('DB_POOL_MAX') ?? 20),
+          idleTimeoutMillis: Number(
+            config.get('DB_POOL_IDLE_TIMEOUT_MS') ?? 30000,
+          ),
+          connectionTimeoutMillis: Number(
+            config.get('DB_POOL_CONNECTION_TIMEOUT_MS') ?? 2000,
+          ),
+        },
       }),
     }),
+    CacheModule,
     UsersModule,
     AuthModule,
     PostsModule,
