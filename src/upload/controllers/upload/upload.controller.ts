@@ -18,6 +18,7 @@ import {
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { UploadService } from '../../services/upload/upload.service';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('Upload')
 @Controller('upload')
@@ -60,6 +61,7 @@ export class UploadController {
       },
     }),
   )
+  @Throttle({ default: { ttl: 60_000, limit: 10 } }) // 60초에 10번 요청 제한
   @UseGuards(JwtAuthGuard)
   @Post('profile-image')
   async uploadProfileImage(

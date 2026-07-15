@@ -495,3 +495,11 @@ npm install @aws-sdk/s3-request-presigner
      6. Swagger에서 job 등록 확인
 - 9. DB connection pool 조정
 - 10. API rate limit 적용
+      1. @nestjs/throttler 설치
+      2. AppModule에 ThrottlerModule 등록
+      3. 전역 ThrottlerGuard 등록
+      4. 기본 제한값 설정
+      5. 특정 API별 제한값 커스텀
+      6. 로그인/검색 API 제한 강화
+      7. 테스트로 429 응답 확인
+      8. 운영 환경 주의사항 정리

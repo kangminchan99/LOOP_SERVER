@@ -22,6 +22,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreatePostDto } from '../../dto/create-dto';
@@ -78,6 +79,7 @@ export class PostsController {
     description: '게시글 검색 성공',
     type: PostListPageDto,
   })
+  @Throttle({ default: { ttl: 60_000, limit: 60 } }) // 60초에 60번 요청 제한
   @Get('search')
   async searchList(
     @Query() query: GetPostsSearchQueryDto,

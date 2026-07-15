@@ -3,6 +3,7 @@ import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, Min } from 'class-validator';
 import { NotificationQueueService } from '../../../queues/notification-queue/services/notification-queue/notification-queue.service';
+import { Throttle } from '@nestjs/throttler';
 
 class CleanupOldReadNotificationsRequestDto {
   @Type(() => Number)
@@ -34,6 +35,7 @@ export class NotificationMaintenanceController {
       },
     },
   })
+  @Throttle({ default: { ttl: 60_000, limit: 2 } }) // 60초에 2번 요청 제한
   @Post('cleanup-old-read')
   @HttpCode(HttpStatus.OK)
   async cleanupOldReadNotifications(

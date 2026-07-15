@@ -2,17 +2,19 @@ import { Module } from '@nestjs/common';
 // ConfigModule, ConfigService 추가 (환경변수 로드)
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
+import { CacheModule } from './cache/cache.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PostsModule } from './posts/posts.module';
 import { NotificationQueueModule } from './queues/notification-queue/notification-queue.module';
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
-import { CacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
@@ -22,6 +24,14 @@ import { CacheModule } from './cache/cache.module';
       // 모든 모듈에서 별도 import 없이 환경변수 사용 가능
       isGlobal: true,
     }),
+
+    // 같은 사용자/IP가 60초 안에 100번 넘게 요청하면 차단 (전역 기본 제한)
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 100,
+      },
+    ]),
 
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -76,6 +86,12 @@ import { CacheModule } from './cache/cache.module';
     NotificationQueueModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

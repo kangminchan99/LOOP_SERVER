@@ -17,6 +17,7 @@ import { RefreshTokenDto } from '../../dto/refresh-token.dto';
 import { RegisterDto } from '../../dto/register.dto';
 import { AuthService } from '../../services/auth/auth.service';
 import { GoogleLoginDto } from '../../dto/google-login.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('auth') // Swagger에서 auth 그룹으로 표시
 @Controller('auth') // 기본 경로: /auth
@@ -32,6 +33,7 @@ export class AuthController {
   }) // 201
   @ApiBadRequestResponse({ description: '요청 값 검증 실패' }) // 400
   @ApiConflictResponse({ description: '이미 존재하는 이메일' }) // 409
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('register') // POST /auth/register
   register(@Body() dto: RegisterDto): Promise<AuthTokenResponseDto> {
     return this.authService.register(dto);
@@ -43,6 +45,7 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: '이메일 또는 비밀번호가 올바르지 않음',
   }) // 400
+  @Throttle({ default: { ttl: 60_000, limit: 5 } }) // 60초에 5번 요청 제한
   @Post('login') // POST /auth/login
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto): Promise<AuthTokenResponseDto> {
@@ -64,6 +67,7 @@ export class AuthController {
   @ApiServiceUnavailableResponse({
     description: '카카오 인증 서버 연결 실패',
   })
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Post('kakao')
   @HttpCode(HttpStatus.OK)
   kakaoLogin(@Body() dto: KakaoLoginDto): Promise<AuthTokenResponseDto> {
@@ -78,6 +82,7 @@ export class AuthController {
   }) // 200
   @ApiBadRequestResponse({ description: '요청 값 검증 실패' }) // 400
   @ApiUnauthorizedResponse({ description: '유효하지 않은 Refresh Token' }) // 401
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @Post('refresh') // POST /auth/refresh
   @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: RefreshTokenDto): Promise<AuthTokenResponseDto> {
@@ -99,6 +104,7 @@ export class AuthController {
   @ApiServiceUnavailableResponse({
     description: '구글 인증 서버 연결 실패',
   })
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Post('google')
   @HttpCode(HttpStatus.OK)
   googleLogin(@Body() dto: GoogleLoginDto): Promise<AuthTokenResponseDto> {
