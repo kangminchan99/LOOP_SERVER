@@ -26,6 +26,7 @@ import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreatePostDto } from '../../dto/create-dto';
 import { GetPostsQueryDto } from '../../dto/get-posts-query.dto';
+import { GetPostsSearchQueryDto } from '../../dto/get-posts-search-query.dto';
 import { PostListPageDto } from '../../dto/post-list-page.dto';
 import { PostResponseDto } from '../../dto/post-response.dto';
 import { UpdatePostDto } from '../../dto/update-dto';
@@ -69,6 +70,19 @@ export class PostsController {
   @Get()
   async findList(@Query() query: GetPostsQueryDto): Promise<PostListPageDto> {
     return this.postsService.findListItems(query);
+  }
+
+  // 게시글 검색 GET /posts/search
+  @ApiOperation({ summary: '게시글 검색' })
+  @ApiOkResponse({
+    description: '게시글 검색 성공',
+    type: PostListPageDto,
+  })
+  @Get('search')
+  async searchList(
+    @Query() query: GetPostsSearchQueryDto,
+  ): Promise<PostListPageDto> {
+    return this.postsService.searchListItems(query);
   }
 
   // 게시글 상세 조회 GET /posts/:id

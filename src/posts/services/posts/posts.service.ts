@@ -10,6 +10,7 @@ import { NotificationQueueService } from '../../../queues/notification-queue/ser
 import { User } from '../../../users/entities/user.entity';
 import { CreatePostDto } from '../../dto/create-dto';
 import { GetPostsQueryDto } from '../../dto/get-posts-query.dto';
+import { GetPostsSearchQueryDto } from '../../dto/get-posts-search-query.dto';
 import { PostListItemDto } from '../../dto/post-list-item-dto';
 import { PostListPageDto } from '../../dto/post-list-page.dto';
 import { Post } from '../../entities/post.entity';
@@ -124,6 +125,69 @@ export class PostsService {
     await this.cacheService.setJson(cacheKey, result, 10);
 
     return result;
+  }
+
+  // 게시글 검색 목록 조회 (제목/본문 기준)
+  async searchListItems(
+    query: GetPostsSearchQueryDto,
+  ): Promise<PostListPageDto> {
+    const { keyword, cursor, limit = 20 } = query;
+
+    const qb = this.postsRepository
+      .createQueryBuilder('post')
+      .innerJoin(User, 'user', 'user.id = post.authorId')
+      .select('post.id', 'postId')
+      .addSelect('post.title', 'title')
+      .addSelect('user.nickname', 'authorNickname')
+      .addSelect('post.createdAt', 'createdAt')
+      .where('(post.title ILIKE :keyword OR post.content ILIKE :keyword)', {
+        keyword: `%${keyword}%`,
+      })
+      .orderBy('post.createdAt', 'DESC')
+      .addOrderBy('post.id', 'DESC')
+      .take(limit + 1);
+
+    if (cursor) {
+      const [cursorCreatedAt, cursorPostId] = cursor.split('_');
+
+      qb.andWhere(
+        '(post.createdAt < :cursorCreatedAt OR (post.createdAt = :cursorCreatedAt AND post.id < :cursorPostId))',
+        {
+          cursorCreatedAt: new Date(cursorCreatedAt),
+          cursorPostId: Number(cursorPostId),
+        },
+      );
+    }
+
+    const rows = await qb.getRawMany<{
+      postId: number | string;
+      title: string;
+      authorNickname: string;
+      createdAt: Date;
+    }>();
+
+    const hasNext = rows.length > limit;
+    const pageRows = hasNext ? rows.slice(0, limit) : rows;
+
+    const items: PostListItemDto[] = pageRows.map((row) => ({
+      postId: Number(row.postId),
+      title: row.title,
+      authorNickname: row.authorNickname,
+      createdAt: row.createdAt,
+    }));
+
+    const lastItem = items[items.length - 1];
+
+    const nextCursor =
+      hasNext && lastItem
+        ? `${lastItem.createdAt.toISOString()}_${lastItem.postId}`
+        : null;
+
+    return {
+      items,
+      nextCursor,
+      hasNext,
+    };
   }
 
   // 게시글 삭제 (작성자만 가능)

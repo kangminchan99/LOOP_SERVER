@@ -459,6 +459,15 @@ npm install @aws-sdk/s3-request-presigner
 - 3. 커서 페이지네이션 점검/개선
 - 4. DB 인덱스 추가
 - 5. 검색 API 성능 개선
+     1. 검색 Query DTO 만들기
+     2. PostsController에 검색 API 추가
+     3. PostsService에 기본 검색 로직 추가
+     4. 검색 결과도 cursor pagination 적용
+     5. 검색 API 동작 확인
+     6. 검색 성능 측정
+     7. PostgreSQL pg_trgm extension 추가
+     8. title/content 검색용 GIN index 추가
+     9. 검색 성능 재측정
 - 6. 동시 요청 테스트 (npx autocannon -c 100 -d 30 "http://127.0.0.1:3000/posts?limit=20")
      -c 100
      → 동시에 100개 연결
