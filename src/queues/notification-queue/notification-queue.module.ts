@@ -4,6 +4,7 @@ import { NOTIFICATION_QUEUE } from './notification-queue.constants';
 import { NotificationQueueService } from './services/notification-queue/notification-queue.service';
 import { NotificationProcessor } from './processors/notification.processor';
 import { NotificationsModule } from '../../notifications/notifications.module';
+import { NotificationMaintenanceController } from '../../notifications/controllers/notifications/notification-maintenance.controller';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { NotificationsModule } from '../../notifications/notifications.module';
     }),
     NotificationsModule,
   ],
+  controllers: [NotificationMaintenanceController],
   providers: [NotificationQueueService, NotificationProcessor],
   exports: [NotificationQueueService],
 })

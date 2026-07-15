@@ -486,6 +486,12 @@ npm install @aws-sdk/s3-request-presigner
      3. CacheService 생성
      4. AppModule에 CacheModule 등록
      5. build 확인
-- 8. BullMQ로 무거운 작업 분리
+- 8. BullMQ로 무거운 작업 분리 (서버가 어떤 무거운 일을 바로 처리하지 않고, Redis에 “나중에 처리할 일”로 넣어두는 구조)
+     1. NotificationQueue job 이름 추가
+     2. NotificationQueueService에 cleanup job 등록 메서드 추가
+     3. NotificationsService에 오래된 읽은 알림 삭제 로직 추가
+     4. NotificationProcessor에서 cleanup job 처리
+     5. 테스트용/관리자용 API 추가
+     6. Swagger에서 job 등록 확인
 - 9. DB connection pool 조정
 - 10. API rate limit 적용

@@ -194,4 +194,25 @@ export class NotificationsService {
 
     return { count };
   }
+
+  // 오래된 읽은 알림 삭제
+  async cleanupOldReadNotifications(
+    days: number,
+  ): Promise<{ deletedCount: number }> {
+    const cutoffDate = new Date();
+
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const result = await this.notificationsRepository
+      .createQueryBuilder()
+      .delete()
+      .from(Notification)
+      .where('readAt IS NOT NULL')
+      .andWhere('readAt < :cutoffDate', { cutoffDate })
+      .execute();
+
+    return {
+      deletedCount: result.affected ?? 0,
+    };
+  }
 }
