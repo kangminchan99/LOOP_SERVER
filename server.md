@@ -452,6 +452,22 @@ npm install @aws-sdk/s3-request-presigner
 - 4. NotificationsService에 알림 로직 추가
 - 5. NotificationsController에 알림 API 추가
 
+## 28. 댓글 기능 추가
+
+- 1. Comment Entity 만들기
+- 2. CommentsModule / Service / Controller 생성
+- 3. CommentsModule에 TypeOrmModule 등록
+- 4. PostsModule / UsersModule 관계 확인
+- 5. CreateCommentDto 만들기
+- 6. CommentResponseDto 만들기
+- 7. 댓글 작성 API 만들기
+- 8. 댓글 목록 조회 API 만들기
+- 9. 댓글 삭제 API 만들기
+- 10. 댓글 목록 cursor pagination 적용
+- 11. 댓글 작성 시 게시글 작성자에게 알림 연결
+- 12. Swagger 테스트
+- 13. Flutter 상세 페이지에 댓글 UI 연결
+
 ## 대용량 데이터 처리 및 동시 요청 성능 개선
 
 - 1. 대량 seed 데이터 만들기
