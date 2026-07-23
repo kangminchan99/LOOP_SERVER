@@ -6,11 +6,13 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Post } from '../../../posts/entities/post.entity';
+import { CommentListPageDto } from '../../dto/comment-list-page.dto';
 import { CommentResponseDto } from '../../dto/comment-response.dto';
 import { CreateCommentDto } from '../../dto/create-comment.dto';
-import { Comment } from '../../entities/comment.entity';
 import { GetCommentsQueryDto } from '../../dto/get-comments-query.dto';
-import { CommentListPageDto } from '../../dto/comment-list-page.dto';
+import { MyCommentListPageDto } from '../../dto/my-comment-list-page.dto';
+import { MyCommentResponseDto } from '../../dto/my-comment-response.dto';
+import { Comment } from '../../entities/comment.entity';
 
 @Injectable()
 export class CommentsService {
@@ -132,5 +134,54 @@ export class CommentsService {
     await this.commentsRepository.delete(comment.id);
 
     return CommentResponseDto.fromEntity(comment);
+  }
+
+  async findMyComments(
+    userId: number,
+    query: GetCommentsQueryDto,
+  ): Promise<MyCommentListPageDto> {
+    const { cursor, limit = 20 } = query;
+
+    const qb = this.commentsRepository
+      .createQueryBuilder('comment')
+      .innerJoinAndSelect('comment.post', 'post')
+      .where('comment.authorId = :userId', { userId })
+      .orderBy('comment.createdAt', 'DESC')
+      .addOrderBy('comment.id', 'DESC')
+      .take(limit + 1);
+
+    if (cursor) {
+      const [cursorCreatedAt, cursorCommentId] = cursor.split('_');
+
+      qb.andWhere(
+        '(comment.createdAt < :cursorCreatedAt OR (comment.createdAt = :cursorCreatedAt AND comment.id < :cursorCommentId))',
+        {
+          cursorCreatedAt: new Date(cursorCreatedAt),
+          cursorCommentId: Number(cursorCommentId),
+        },
+      );
+    }
+
+    const comments = await qb.getMany();
+
+    const hasNext = comments.length > limit;
+    const pageComments = hasNext ? comments.slice(0, limit) : comments;
+
+    const items = pageComments.map((comment) =>
+      MyCommentResponseDto.fromEntity(comment),
+    );
+
+    const lastItem = items[items.length - 1];
+
+    const nextCursor =
+      hasNext && lastItem
+        ? `${lastItem.createdAt.toISOString()}_${lastItem.id}`
+        : null;
+
+    return {
+      items,
+      nextCursor,
+      hasNext,
+    };
   }
 }
