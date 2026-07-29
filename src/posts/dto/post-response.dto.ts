@@ -11,6 +11,33 @@ export class PostResponseDto {
   @ApiProperty({ example: '게시글 본문입니다.', description: '게시글 내용' })
   content!: string;
 
+  @ApiProperty({
+    example: '게시글 내용을 2문장으로 요약한 문장입니다.',
+    description: 'AI 요약문',
+    nullable: true,
+  })
+  summary!: string | null;
+
+  @ApiProperty({
+    example: 'COMPLETED',
+    description: 'AI 요약 상태',
+  })
+  summaryStatus!: 'PENDING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+
+  @ApiProperty({
+    example: 'OPENAI_TIMEOUT',
+    description: 'AI 요약 실패 사유',
+    nullable: true,
+  })
+  summaryError!: string | null;
+
+  @ApiProperty({
+    example: '2026-07-29T12:00:00.000Z',
+    description: 'AI 요약 생성 시각',
+    nullable: true,
+  })
+  summaryGeneratedAt!: Date | null;
+
   @ApiProperty({ example: 1, description: '작성자 유저 ID' })
   authorId!: number;
 
@@ -31,6 +58,10 @@ export class PostResponseDto {
       id: post.id,
       title: post.title,
       content: post.content,
+      summary: post.summary,
+      summaryStatus: post.summaryStatus,
+      summaryError: post.summaryError,
+      summaryGeneratedAt: post.summaryGeneratedAt,
       authorId: post.authorId,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,

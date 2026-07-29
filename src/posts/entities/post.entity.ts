@@ -49,4 +49,35 @@ export class Post {
   // UPDATE 시점에 자동 갱신
   @UpdateDateColumn({ precision: 3 })
   updatedAt!: Date;
+
+  @ApiProperty({
+    example: '게시글 내용을 2문장으로 요약한 문장입니다.',
+    description: 'AI 요약문',
+    nullable: true,
+  })
+  @Column({ type: 'text', nullable: true })
+  summary!: string | null;
+
+  @ApiProperty({
+    example: 'COMPLETED',
+    description: 'AI 요약 상태',
+  })
+  @Column({ type: 'varchar', length: 20, default: 'PENDING' })
+  summaryStatus!: 'PENDING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+
+  @ApiProperty({
+    example: 'OPENAI_TIMEOUT',
+    description: 'AI 요약 실패 사유',
+    nullable: true,
+  })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  summaryError!: string | null;
+
+  @ApiProperty({
+    example: '2026-07-29T12:00:00.000Z',
+    description: 'AI 요약 생성 시각',
+    nullable: true,
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  summaryGeneratedAt!: Date | null;
 }

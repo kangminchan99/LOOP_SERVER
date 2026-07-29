@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { OpenAiService } from '../../../ai/services/open-ai/open-ai.service';
 import { CacheService } from '../../../cache/cache.service';
 import { NotificationQueueService } from '../../../queues/notification-queue/services/notification-queue/notification-queue.service';
 import { User } from '../../../users/entities/user.entity';
@@ -22,6 +23,7 @@ export class PostsService {
     private readonly postsRepository: Repository<Post>,
     private readonly notificationQueueService: NotificationQueueService,
     private readonly cacheService: CacheService,
+    private readonly openAiService: OpenAiService,
   ) {}
 
   private async invalidatePostListCache(): Promise<void> {
@@ -33,20 +35,43 @@ export class PostsService {
       title: dto.title.trim(),
       content: dto.content.trim(),
       authorId,
+      summaryStatus: 'PENDING',
     });
+
     const savedPost = await this.postsRepository.save(post);
+
+    const summary = await this.openAiService.summarizePost({
+      title: savedPost.title,
+      content: savedPost.content,
+    });
+
+    if (summary) {
+      savedPost.summary = summary;
+      savedPost.summaryStatus = 'COMPLETED';
+      savedPost.summaryError = null;
+      savedPost.summaryGeneratedAt = new Date();
+    } else {
+      savedPost.summary = null;
+      savedPost.summaryStatus =
+        savedPost.content.length < 100 ? 'SKIPPED' : 'FAILED';
+      savedPost.summaryError =
+        savedPost.content.length < 100 ? null : 'AI_SUMMARY_FAILED';
+      savedPost.summaryGeneratedAt = null;
+    }
+
+    const postWithSummary = await this.postsRepository.save(savedPost);
 
     await this.invalidatePostListCache();
 
     void this.notificationQueueService
       .addNewPostNotificationJob({
-        postId: savedPost.id,
-        title: savedPost.title,
+        postId: postWithSummary.id,
+        title: postWithSummary.title,
         authorId,
       })
       .catch(() => undefined);
 
-    return savedPost;
+    return postWithSummary;
   }
 
   async findOne(id: number): Promise<Post> {

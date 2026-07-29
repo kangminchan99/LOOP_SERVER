@@ -468,6 +468,19 @@ npm install @aws-sdk/s3-request-presigner
 - 12. Swagger 테스트
 - 13. Flutter 상세 페이지에 댓글 UI 연결
 
+## 29. 게시글 작성 시 OpenAI API로 AI 자동 요약 기능
+
+- 1. OpenAI API Key 발급
+- 2. 서버 .env에 OPENAI_API_KEY, AI_MODEL 추가
+- 3. OpenAI 패키지 설치
+- 4. AiModule 생성
+- 5. OpenAiService 생성
+- 6. 게시글 요약 프롬프트 작성
+- 7. posts 테이블에 summary 관련 컬럼 추가
+- 8. 게시글 작성 후 AI 요약 생성
+- 9. 실패 처리
+- 10. 앱에서 summary 표시
+
 ## 대용량 데이터 처리 및 동시 요청 성능 개선
 
 - 1. 대량 seed 데이터 만들기

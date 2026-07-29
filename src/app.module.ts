@@ -16,6 +16,7 @@ import { NotificationQueueModule } from './queues/notification-queue/notificatio
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
 import { CommentsModule } from './comments/comments.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { CommentsModule } from './comments/comments.module';
     NotificationsModule,
     NotificationQueueModule,
     CommentsModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [
