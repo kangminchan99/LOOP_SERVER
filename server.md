@@ -481,6 +481,62 @@ npm install @aws-sdk/s3-request-presigner
 - 9. 실패 처리
 - 10. 앱에서 summary 표시
 
+## 30. CI (GitHub에 push/PR 할 때 서버 코드가 자동으로 설치·빌드·테스트되는지 확인)
+
+[CI]
+
+- 1. workflow 폴더 만들기
+- 2. server-ci.yml 만들기
+- 3. lint / lint:fix 분리
+- 4. 로컬에서 CI 명령어 테스트
+
+---
+
+[CD]
+
+- 1. EC2에 프로젝트 clone
+
+/home/ubuntu/loop_server
+
+- 2. EC2에 .env.production 생성
+
+- 3. EC2에서 최초 수동 실행 확인
+
+npm ci
+npm run build
+pm2 start dist/main.js --name loop-server
+pm2 save
+
+- 4. GitHub Secrets 등록
+
+EC2_HOST
+EC2_USER
+EC2_SSH_KEY
+EC2_PROJECT_PATH
+
+- 5. server-cd.yml 생성
+
+.github/workflows/server-cd.yml
+
+- 6. main 브랜치 push 시 실행되도록 설정
+
+- 7. CD 실행 명령어 작성
+
+cd $EC2_PROJECT_PATH
+git pull origin main
+npm ci
+npm run build
+pm2 restart loop-server
+
+- 8. main 브랜치에 push
+
+- 9. GitHub Actions 탭에서 Server CD 성공 확인
+
+- 10. EC2에서 배포 상태 확인
+
+pm2 list
+pm2 logs loop-server
+
 ## 대용량 데이터 처리 및 동시 요청 성능 개선
 
 - 1. 대량 seed 데이터 만들기
