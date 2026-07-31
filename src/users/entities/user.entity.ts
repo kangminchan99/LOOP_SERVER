@@ -55,4 +55,11 @@ export class User {
   })
   @Column({ default: 0 })
   point!: number;
+
+  @ApiProperty({
+    example: 'USER',
+    description: '유저 권한',
+  })
+  @Column({ type: 'varchar', length: 20, default: 'USER' })
+  role!: 'USER' | 'ADMIN';
 }

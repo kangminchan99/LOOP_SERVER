@@ -1,9 +1,26 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Type } from 'class-transformer';
 import { IsInt, Min } from 'class-validator';
+import { AdminGuard } from '../../../auth/guards/admin.guard';
+import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { NotificationQueueService } from '../../../queues/notification-queue/services/notification-queue/notification-queue.service';
-import { Throttle } from '@nestjs/throttler';
 
 class CleanupOldReadNotificationsRequestDto {
   @Type(() => Number)
@@ -13,6 +30,8 @@ class CleanupOldReadNotificationsRequestDto {
 }
 
 @ApiTags('notification-maintenance')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, AdminGuard)
 @Controller('notification-maintenance')
 export class NotificationMaintenanceController {
   constructor(
@@ -38,6 +57,8 @@ export class NotificationMaintenanceController {
   @Throttle({ default: { ttl: 60_000, limit: 2 } }) // 60초에 2번 요청 제한
   @Post('cleanup-old-read')
   @HttpCode(HttpStatus.OK)
+  @ApiUnauthorizedResponse({ description: '인증 실패' })
+  @ApiForbiddenResponse({ description: '관리자 권한이 필요합니다.' })
   async cleanupOldReadNotifications(
     @Body() dto: CleanupOldReadNotificationsRequestDto,
   ): Promise<{ success: true }> {

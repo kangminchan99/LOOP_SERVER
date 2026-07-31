@@ -13,6 +13,7 @@ import { UploadService } from '../../../upload/services/upload/upload.service';
 import { UserResponseDto } from '../../../users/dto/user-response.dto';
 import { User } from '../../../users/entities/user.entity';
 import { AuthTokenResponseDto } from '../../dto/auth-token-response.dto';
+import { GoogleLoginDto } from '../../dto/google-login.dto';
 import { KakaoLoginDto } from '../../dto/kakao-login.dto';
 import { LoginDto } from '../../dto/login.dto';
 import { RefreshTokenDto } from '../../dto/refresh-token.dto';
@@ -23,7 +24,6 @@ import {
 } from '../../entities/social-account.entity';
 import { GoogleAuthService } from '../google/google-auth.service';
 import { KakaoAuthService } from '../kakao/kakao-auth.service';
-import { GoogleLoginDto } from '../../dto/google-login.dto';
 
 @Injectable() // Nest DI 컨테이너에 서비스로 등록
 export class AuthService {
@@ -233,7 +233,10 @@ export class AuthService {
     accessToken: string;
     refreshToken: string;
   } {
-    const commonPayload = { sub: user.id };
+    const commonPayload = {
+      sub: user.id,
+      role: user.role,
+    };
 
     const accessToken = this.jwtService.sign(
       {

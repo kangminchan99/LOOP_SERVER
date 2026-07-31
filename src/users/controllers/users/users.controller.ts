@@ -14,6 +14,7 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -22,6 +23,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { AdminGuard } from '../../../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { UploadService } from '../../../upload/services/upload/upload.service';
@@ -45,6 +47,12 @@ export class UsersController {
     isArray: true,
   })
   @ApiBadRequestResponse({ description: '잘못된 요청' })
+  @ApiBearerAuth()
+  @ApiUnauthorizedResponse({
+    description: '인증 토큰이 없거나 유효하지 않습니다.',
+  })
+  @ApiForbiddenResponse({ description: '관리자 권한이 필요합니다.' })
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Get()
   async findAll(): Promise<UserResponseDto[]> {
     const users = await this.usersService.findAll();
@@ -72,7 +80,13 @@ export class UsersController {
   @ApiParam({ name: 'id', type: Number, description: '유저 ID' })
   @ApiOkResponse({ description: '유저 조회 성공', type: UserResponseDto })
   @ApiBadRequestResponse({ description: 'id 파라미터 형식 오류' })
+  @ApiBearerAuth()
+  @ApiUnauthorizedResponse({
+    description: '인증 토큰이 없거나 유효하지 않습니다.',
+  })
+  @ApiForbiddenResponse({ description: '관리자 권한이 필요합니다.' })
   @ApiNotFoundResponse({ description: '유저를 찾을 수 없습니다.' })
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Get(':id')
   async findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -86,6 +100,12 @@ export class UsersController {
   @ApiCreatedResponse({ description: '유저 생성 성공', type: UserResponseDto })
   @ApiBadRequestResponse({ description: '요청 바디 검증 실패' })
   @ApiConflictResponse({ description: '이미 존재하는 이메일입니다.' })
+  @ApiBearerAuth()
+  @ApiUnauthorizedResponse({
+    description: '인증 토큰이 없거나 유효하지 않습니다.',
+  })
+  @ApiForbiddenResponse({ description: '관리자 권한이 필요합니다.' })
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Post()
   async create(@Body() body: CreateUserDto): Promise<UserResponseDto> {
     const user = await this.usersService.create(
@@ -100,7 +120,13 @@ export class UsersController {
   @ApiParam({ name: 'id', type: Number, description: '유저 ID' })
   @ApiNoContentResponse({ description: '유저 삭제 성공' })
   @ApiBadRequestResponse({ description: 'id 파라미터 형식 오류' })
+  @ApiBearerAuth()
+  @ApiUnauthorizedResponse({
+    description: '인증 토큰이 없거나 유효하지 않습니다.',
+  })
+  @ApiForbiddenResponse({ description: '관리자 권한이 필요합니다.' })
   @ApiNotFoundResponse({ description: '유저를 찾을 수 없습니다.' })
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     await this.usersService.remove(id);

@@ -27,6 +27,7 @@ import { DeleteFcmTokenDto } from '../../dto/delete-fcm-token.dto';
 import { NotificationResponseDto } from '../../dto/notification-response.dto';
 import { RegisterFcmTokenDto } from '../../dto/register-fcm-token.dto';
 import { NotificationsService } from '../../services/notifications/notifications.service';
+import { AdminGuard } from '../../../auth/guards/admin.guard';
 
 @ApiTags('notifications')
 @ApiBearerAuth()
@@ -126,6 +127,7 @@ export class NotificationsController {
   @ApiBody({ type: BroadcastNotificationDto })
   @ApiOkResponse({ description: '전체 푸시 발송 성공' })
   @ApiUnauthorizedResponse({ description: '인증 실패' })
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Post('broadcast')
   @HttpCode(HttpStatus.OK)
   async broadcast(

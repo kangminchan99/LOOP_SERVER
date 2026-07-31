@@ -537,6 +537,16 @@ pm2 restart loop-server
 pm2 list
 pm2 logs loop-server
 
+## 31. API 보안 점검
+
+- 1. 관리자 권한 구조 만들기
+- 2. AdminGuard 생성
+- 3. JWT에 role을 포함
+- 4. 전체 푸시 API 보호
+- 5. UsersController 보안 정리
+- 6. Refresh token role 갱신 정책
+- 7. 관리자 API 테스트
+
 ## 대용량 데이터 처리 및 동시 요청 성능 개선
 
 - 1. 대량 seed 데이터 만들기
