@@ -246,6 +246,124 @@ controllers: [PostsController],
 
 npm install @aws-sdk/s3-request-presigner
 
+## 22-2. CloudFront CDN 적용 계획
+
+[목표]
+
+S3에 저장된 프로필 이미지/게시글 이미지를 앱에서 직접 S3 URL로 조회하지 않고, CloudFront CDN URL로 조회하도록 변경한다.
+
+```txt
+현재 구조
+Flutter App → S3 URL
+
+목표 구조
+Flutter App → CloudFront CDN → S3
+```
+
+[왜 적용하는가]
+
+- 이미지 로딩 속도 개선
+- S3 직접 노출 최소화
+- 동일 이미지 반복 요청 시 CloudFront 캐시 사용
+- 운영 환경에서 이미지/정적 파일 전달 구조를 실무 방식에 가깝게 개선
+
+[적용 순서]
+
+1. S3 버킷 상태 확인
+
+   - 현재 업로드 경로 확인
+   - 프로필 이미지 key 구조 확인
+   - 게시글 이미지 key 구조 확인
+
+2. CloudFront Distribution 생성
+
+   AWS 콘솔 → CloudFront → Create distribution
+
+   - Origin domain: 기존 S3 버킷 선택
+   - Viewer protocol policy: Redirect HTTP to HTTPS
+   - Allowed HTTP methods: GET, HEAD
+   - Cache policy: CachingOptimized
+
+3. S3 접근 정책 결정
+
+   개발 단계에서는 둘 중 하나 선택:
+
+   - 간단한 방식: S3 public read 유지 + CloudFront 연결
+   - 실무 권장 방식: S3 private + CloudFront OAC(Origin Access Control)로만 접근 허용
+
+   최종 목표는 S3 private + CloudFront OAC 구조.
+
+4. 환경변수 추가
+
+   `.env.development`, `.env.production`, `.env.example`에 추가:
+
+   ```env
+   CLOUDFRONT_DOMAIN=
+   ```
+
+   예시:
+
+   ```env
+   CLOUDFRONT_DOMAIN=https://dxxxxx.cloudfront.net
+   ```
+
+5. 서버 응답 URL 변경
+
+   현재 S3 URL을 그대로 DB/응답에 내려주고 있다면, 조회 응답에서는 CloudFront URL로 변환한다.
+
+   예시:
+
+   ```txt
+   S3 key: profiles/user-1.png
+   응답 URL: https://dxxxxx.cloudfront.net/profiles/user-1.png
+   ```
+
+   실무적으로는 DB에 전체 URL보다 S3 key만 저장하는 방식이 좋다.
+
+   ```txt
+   DB 저장: profiles/user-1.png
+   API 응답: CLOUDFRONT_DOMAIN + / + imageKey
+   ```
+
+6. UploadService 수정 방향
+
+   - S3 업로드는 그대로 유지
+   - 업로드 결과로 S3 URL 대신 `key` 또는 CloudFront URL 반환
+   - User/Post 응답 DTO에서 CloudFront URL 조립
+
+7. Flutter 앱 수정 방향
+
+   - 앱은 서버가 내려주는 `profileImageUrl`, `postImageUrl`을 그대로 사용
+   - Flutter는 S3/CloudFront 여부를 몰라도 되게 만든다
+   - `cached_network_image`는 그대로 사용 가능
+
+8. 캐시 무효화 전략
+
+   이미지 파일명을 매번 새 UUID로 만들면 CloudFront invalidation을 자주 하지 않아도 된다.
+
+   추천:
+
+   ```txt
+   profiles/{userId}/{uuid}.jpg
+   posts/{postId}/{uuid}.jpg
+   ```
+
+   같은 key로 이미지를 덮어쓰는 방식은 캐시 때문에 앱에서 오래된 이미지가 보일 수 있다.
+
+9. 배포 후 확인
+
+   - CloudFront URL로 이미지 조회되는지 확인
+   - S3 URL 직접 접근 차단 여부 확인
+   - Flutter 앱에서 이미지 로딩 확인
+   - 캐시 적용 후 재요청 속도 확인
+
+[주의사항]
+
+- CloudFront는 생성 후 배포 완료까지 시간이 걸릴 수 있다.
+- S3를 private으로 바꾸기 전, CloudFront OAC 접근이 정상 동작하는지 먼저 확인한다.
+- 이미지 수정이 잦은 경우 같은 파일명 재사용보다 UUID 기반 새 key 저장이 안전하다.
+- CloudFront 비용이 발생할 수 있으므로 개인 실습 시 사용량을 확인한다.
+
 ## 23. AWS 연동 EC2 + Docker
 
 - 1. Dockerfile 작성 (로컬)
