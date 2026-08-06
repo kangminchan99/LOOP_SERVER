@@ -5,18 +5,19 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminModule } from './admin/admin.module';
+import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './cache/cache.module';
+import { CommentsModule } from './comments/comments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PostsModule } from './posts/posts.module';
 import { NotificationQueueModule } from './queues/notification-queue/notification-queue.module';
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
-import { CommentsModule } from './comments/comments.module';
-import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { AiModule } from './ai/ai.module';
     NotificationQueueModule,
     CommentsModule,
     AiModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
