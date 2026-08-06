@@ -23,14 +23,11 @@ import {
 import sharp from 'sharp';
 import { Repository } from 'typeorm';
 import { User } from '../../../users/entities/user.entity';
+import { randomUUID } from 'crypto';
 
 // Node.js 내장 path 모듈
 // extname: 파일 경로에서 확장자만 추출 (예: 'photo.jpg' → '.jpg')
 // import { extname } from 'path';
-
-// UUID v4 생성 함수
-// 파일명 충돌 방지용으로 사용 (같은 이름의 파일을 여러 번 올려도 S3에서 덮어쓰지 않음)
-import { v4 as uuidv4 } from 'uuid';
 
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -133,7 +130,7 @@ export class UploadService {
     const now = new Date();
     const yyyy = now.getUTCFullYear();
     const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-    return `profiles/${yyyy}/${mm}/${uuidv4()}.webp`;
+    return `profiles/${yyyy}/${mm}/${randomUUID()}.webp`;
   }
 
   async toSignedProfileImageUrl(
