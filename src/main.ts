@@ -1,4 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -24,6 +25,15 @@ async function bootstrap() {
 
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api-docs', app, swaggerDocument);
+
+  // CORS 설정
+  const configService = app.get(ConfigService);
+  const adminWebOrigin = configService.get<string>('ADMIN_WEB_ORIGIN');
+
+  app.enableCors({
+    origin: adminWebOrigin ? [adminWebOrigin] : false,
+    credentials: true,
+  });
 
   await app.listen(process.env.PORT ?? 3000);
 }
