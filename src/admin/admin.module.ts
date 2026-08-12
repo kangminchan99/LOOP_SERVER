@@ -3,13 +3,19 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Comment } from '../comments/entities/comment.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { Post } from '../posts/entities/post.entity';
+import { UploadModule } from '../upload/upload.module';
 import { User } from '../users/entities/user.entity';
 import { AdminDashboardController } from './controllers/admin-dashboard.controller';
+import { AdminUsersController } from './controllers/admin-users.controller';
 import { AdminDashboardService } from './services/admin-dashboard.service';
+import { AdminUsersService } from './services/admin-users.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Post, Comment, Notification])],
-  controllers: [AdminDashboardController],
-  providers: [AdminDashboardService],
+  imports: [
+    TypeOrmModule.forFeature([User, Post, Comment, Notification]),
+    UploadModule,
+  ],
+  controllers: [AdminDashboardController, AdminUsersController],
+  providers: [AdminDashboardService, AdminUsersService],
 })
 export class AdminModule {}
