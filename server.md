@@ -270,7 +270,6 @@ Flutter App → CloudFront CDN → S3
 [적용 순서]
 
 1. S3 버킷 상태 확인
-
    - 현재 업로드 경로 확인
    - 프로필 이미지 key 구조 확인
    - 게시글 이미지 key 구조 확인
@@ -278,7 +277,6 @@ Flutter App → CloudFront CDN → S3
 2. CloudFront Distribution 생성
 
    AWS 콘솔 → CloudFront → Create distribution
-
    - Origin domain: 기존 S3 버킷 선택
    - Viewer protocol policy: Redirect HTTP to HTTPS
    - Allowed HTTP methods: GET, HEAD
@@ -287,7 +285,6 @@ Flutter App → CloudFront CDN → S3
 3. S3 접근 정책 결정
 
    개발 단계에서는 둘 중 하나 선택:
-
    - 간단한 방식: S3 public read 유지 + CloudFront 연결
    - 실무 권장 방식: S3 private + CloudFront OAC(Origin Access Control)로만 접근 허용
 
@@ -326,13 +323,11 @@ Flutter App → CloudFront CDN → S3
    ```
 
 6. UploadService 수정 방향
-
    - S3 업로드는 그대로 유지
    - 업로드 결과로 S3 URL 대신 `key` 또는 CloudFront URL 반환
    - User/Post 응답 DTO에서 CloudFront URL 조립
 
 7. Flutter 앱 수정 방향
-
    - 앱은 서버가 내려주는 `profileImageUrl`, `postImageUrl`을 그대로 사용
    - Flutter는 S3/CloudFront 여부를 몰라도 되게 만든다
    - `cached_network_image`는 그대로 사용 가능
@@ -351,7 +346,6 @@ Flutter App → CloudFront CDN → S3
    같은 key로 이미지를 덮어쓰는 방식은 캐시 때문에 앱에서 오래된 이미지가 보일 수 있다.
 
 9. 배포 후 확인
-
    - CloudFront URL로 이미지 조회되는지 확인
    - S3 URL 직접 접근 차단 여부 확인
    - Flutter 앱에서 이미지 로딩 확인
@@ -664,6 +658,32 @@ pm2 logs loop-server
 - 5. UsersController 보안 정리
 - 6. Refresh token role 갱신 정책
 - 7. 관리자 API 테스트
+
+## 32. 채팅 기능
+
+[채팅방 생성 API]
+
+- 1. ChatModule 생성
+- 2. ChatRoomEntity 생성
+- 3. ChatRoomParticipant Entity 생성
+- 4. ChatMessage Entity 생성
+- 5. ChatModule에 Entity 등록
+- 6. CreateDirectChatRoomDto 생성
+- 7. ChatRoomResponseDto 생성
+- 8. ChatRoomsService 생성
+- 9. ChatRoomsController 생성
+
+[채팅방 목록 조회 API]
+
+- 1. ChatRoomsService에 목록 조회 메서드 추가
+- 2. ChatRoomsController에 목록 조회 API 추가
+
+[채팅 메시지 목록 조회 API]
+
+- 1. 메시지 조회 Query DTO 만들기
+- 2. ChatMessageResponseDto 생성
+- 3. ChatMessagesService 생성
+- 4. Controller에 메시지 목록 조회 API를 추가
 
 ## 대용량 데이터 처리 및 동시 요청 성능 개선
 

@@ -18,6 +18,7 @@ import { PostsModule } from './posts/posts.module';
 import { NotificationQueueModule } from './queues/notification-queue/notification-queue.module';
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -90,6 +91,7 @@ import { UsersModule } from './users/users.module';
     CommentsModule,
     AiModule,
     AdminModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [
