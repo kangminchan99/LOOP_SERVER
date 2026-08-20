@@ -684,6 +684,126 @@ pm2 logs loop-server
 - 2. ChatMessageResponseDto 생성
 - 3. ChatMessagesService 생성
 - 4. Controller에 메시지 목록 조회 API를 추가
+- 5. ChatGateway 생성
+
+[WebSocket]
+
+- 1. WebSocket으로 보낼 메시지 DTO (SendChatMessageDto)
+- 2. ChatMessagesService.createMessage() 추가
+- 3. WebSocket 패키지 설치
+- 4. ChatGateway 생성
+- 5. Gateway에 연결 인증 추가
+- 6. chat:join 참여자 권한 검증
+
+[WebSocket 실무 적용 시 수정/점검할 부분]
+
+- 1. 로컬 주소를 운영 주소로 변경
+     - 로컬: `ws://localhost:3000` 또는 `http://localhost:3000`
+     - 운영: `wss://api.example.com`
+     - Flutter 앱의 socket 연결 URL을 운영 API 도메인으로 변경
+
+- 2. WebSocket CORS 설정 제한
+     - 현재 개발 중에는 `origin: '*'` 사용 가능
+     - 운영에서는 허용할 앱/웹 도메인만 명시
+
+```ts
+@WebSocketGateway({
+  cors: {
+    origin: ['https://admin.example.com', 'https://app.example.com'],
+  },
+})
+```
+
+- 3. Nginx 또는 로드밸런서에서 WebSocket Upgrade 설정
+     - EC2 + Nginx 배포 시 `/socket.io/` 요청을 NestJS 서버로 프록시
+     - `Upgrade`, `Connection` 헤더가 있어야 WebSocket 연결 유지 가능
+
+```nginx
+location /socket.io/ {
+  proxy_pass http://localhost:3000/socket.io/;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header Host $host;
+}
+```
+
+- 4. 연결 시 JWT 인증 유지
+     - Flutter에서 socket 연결 시 `auth.token`으로 accessToken 전달
+     - 서버 `ChatGateway.handleConnection()`에서 토큰 검증
+     - 성공 시 `client.data.userId` 저장
+     - 실패 시 `client.disconnect(true)`
+
+```dart
+IO.io(
+  'wss://api.example.com',
+  IO.OptionBuilder()
+      .setTransports(['websocket'])
+      .setAuth({'token': accessToken})
+      .build(),
+);
+```
+
+- 5. `chat:join`에서도 참여자 권한 검증
+     - 현재 메시지 전송은 `createMessage()`에서 참여자 검증
+     - 운영에서는 room 입장도 검증 필요
+     - 참여자가 아닌 유저가 임의 roomId로 입장하지 못하게 막아야 함
+
+```txt
+chat:join
+→ userId 확인
+→ roomId 참여자인지 검사
+→ 맞으면 client.join()
+→ 아니면 WsException
+```
+
+- 6. 서버 여러 대 운영 시 Redis Adapter 적용
+     - 서버 1대: socket room이 서버 메모리에만 있어도 동작
+     - 서버 2대 이상: Redis Adapter 필요
+     - 이유: A 유저는 서버1, B 유저는 서버2에 붙으면 기본 emit만으로 전달 안 될 수 있음
+
+```txt
+Nest 서버 1
+Nest 서버 2
+    ↓
+Redis Pub/Sub
+```
+
+- 7. Access Token 만료 처리
+     - WebSocket은 한 번 연결되면 오래 유지됨
+     - 운영에서는 토큰 만료 정책 필요
+     - 기본 방식:
+       1. 연결 시 accessToken 검증
+       2. 만료되면 연결 실패
+       3. 앱에서 refresh 후 socket 재연결
+
+- 8. 오프라인 유저 FCM 처리
+     - 상대가 socket room에 접속 중이면 WebSocket으로 즉시 전달
+     - 상대가 오프라인이면 FCM 푸시 발송
+     - 메시지는 항상 DB에 먼저 저장
+
+```txt
+chat:send
+→ DB 저장
+→ 온라인 유저에게 WebSocket emit
+→ 오프라인 유저에게 FCM 발송
+```
+
+- 9. 운영 로그/모니터링 추가
+     - 연결 성공/실패
+     - room join
+     - 메시지 전송 실패
+     - 인증 실패
+     - 추후 Sentry 또는 OpenTelemetry와 연결 가능
+
+- 10. 운영 전 테스트 순서
+      1. 로컬 socket.io-client 테스트
+      2. Flutter 앱에서 로컬 WebSocket 연결
+      3. 서버 배포 후 `wss://` 연결 확인
+      4. Nginx/ALB WebSocket 연결 유지 확인
+      5. 앱 백그라운드/재접속 확인
+      6. 토큰 만료 후 refresh + 재연결 확인
+      7. 오프라인 유저 FCM 확인
 
 ## 대용량 데이터 처리 및 동시 요청 성능 개선
 
