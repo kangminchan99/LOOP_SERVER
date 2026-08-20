@@ -62,6 +62,7 @@ export class ChatRoomsController {
   @ApiOperation({
     summary: '채팅방 메시지 목록 조회',
   })
+  @Get(':roomId/messages')
   async findMessages(
     @CurrentUser() userId: number,
     @Param('roomId', ParseIntPipe) roomId: number,

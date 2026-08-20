@@ -72,7 +72,7 @@ export class ChatRoomResponseDto {
         nickname: participant.user?.nickname ?? '알 수 없음',
         profileImageUrl: participant.user?.profileImageUrl ?? null,
       })) ?? [];
-    dto.lastMessage = null;
+    dto.lastMessage = room.messages?.[0]?.content ?? null;
     dto.unreadCount = 0;
     dto.createdAt = room.createdAt;
 

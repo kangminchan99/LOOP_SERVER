@@ -10,6 +10,7 @@ import { GetChatMessagesQueryDto } from '../dto/get-chat-messages-query.dto';
 import { SendChatMessageDto } from '../dto/send-chat-message.dto';
 import { ChatMessage, ChatMessageType } from '../entities/chat-message.entity';
 import { ChatRoomParticipant } from '../entities/chat-room-participant.entity';
+import { ChatRoom } from '../entities/chat-room.entity';
 
 @Injectable()
 export class ChatMessagesService {
@@ -19,6 +20,9 @@ export class ChatMessagesService {
 
     @InjectRepository(ChatRoomParticipant)
     private readonly participantRepository: Repository<ChatRoomParticipant>,
+
+    @InjectRepository(ChatRoom)
+    private readonly chatRoomRepository: Repository<ChatRoom>,
   ) {}
 
   async findMessages(
@@ -72,6 +76,10 @@ export class ChatMessagesService {
     });
 
     const savedMessage = await this.chatMessageRepository.save(message);
+
+    await this.chatRoomRepository.update(dto.roomId, {
+      updatedAt: new Date(),
+    });
 
     const messageWithSender = await this.chatMessageRepository.findOne({
       where: {

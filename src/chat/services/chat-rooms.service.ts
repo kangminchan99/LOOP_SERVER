@@ -106,9 +106,11 @@ export class ChatRoomsService {
       .innerJoin('room.participants', 'myParticipant')
       .leftJoinAndSelect('room.participants', 'participants')
       .leftJoinAndSelect('participants.user', 'user')
+      .leftJoinAndSelect('room.messages', 'messages')
       .where('myParticipant.userId = :currentUserId', { currentUserId })
       .andWhere('myParticipant.leftAt IS NULL')
       .orderBy('room.updatedAt', 'DESC')
+      .addOrderBy('messages.createdAt', 'DESC')
       .getMany();
   }
 
