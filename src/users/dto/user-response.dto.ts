@@ -40,6 +40,9 @@ export class UserResponseDto {
   @ApiProperty({ example: 120, description: '유저 보유 포인트' })
   point!: number;
 
+  @ApiProperty({ example: 'USER', description: '유저 권한' })
+  role!: 'USER' | 'ADMIN';
+
   static fromEntity(user: User): UserResponseDto {
     return {
       id: user.id,
@@ -49,6 +52,7 @@ export class UserResponseDto {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       point: user.point,
+      role: user.role,
     };
   }
 }
