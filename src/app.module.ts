@@ -19,6 +19,7 @@ import { NotificationQueueModule } from './queues/notification-queue/notificatio
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
 import { ChatModule } from './chat/chat.module';
+import { AdminSseModule } from './admin-sse/admin-sse.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { ChatModule } from './chat/chat.module';
     AiModule,
     AdminModule,
     ChatModule,
+    AdminSseModule,
   ],
   controllers: [AppController],
   providers: [
