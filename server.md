@@ -412,7 +412,12 @@ Flutter App → CloudFront CDN → S3
 
            네트워크 설정 → 보안 그룹 편집
            규칙 1 (기본): SSH, 포트 22, 내 IP (SSH 접속)
-           규칙 2 추가: 사용자 지정 TCP, 포트 3000, 0.0.0.0/0 (NestJS 서버 포트)
+           규칙 2 추가: HTTP, 포트 80, 0.0.0.0/0 (Nginx HTTP)
+           규칙 3 추가: HTTPS, 포트 443, 0.0.0.0/0 (Nginx HTTPS)
+           규칙 4 선택: 사용자 지정 TCP, 포트 3000, 내 IP (초기 NestJS 직접 테스트용)
+
+           실무에서는 3000번 포트를 0.0.0.0/0으로 열지 않는다.
+           외부 요청은 80/443으로 받고, Nginx가 내부의 NestJS 3000번 포트로 전달한다.
 
            스토리지
            8 GiB (기본값 유지)
@@ -506,6 +511,261 @@ Flutter App → CloudFront CDN → S3
       SELECT * FROM users;
       SELECT \_ FROM posts;
       \q -- 종료
+
+### 23-1. 운영 API 도메인 연결: `https://api.<도메인>`
+
+Flutter 앱에서 운영 서버를 호출할 때는 EC2 IP를 직접 넣는 것보다 도메인을 사용한다.
+
+```env
+API_URL=https://api.<내도메인>
+```
+
+예시:
+
+```env
+API_URL=https://api.loop-example.com
+```
+
+최종 구조:
+
+```txt
+Flutter 앱
+→ https://api.<내도메인>
+→ EC2 Nginx 443
+→ Docker NestJS 127.0.0.1:3000
+→ RDS / S3 / Redis
+```
+
+#### 1. Elastic IP 연결
+
+EC2 퍼블릭 IP는 인스턴스를 중지/시작하면 바뀔 수 있으므로 운영에서는 Elastic IP를 연결한다.
+
+```txt
+AWS 콘솔
+→ EC2
+→ 탄력적 IP
+→ 탄력적 IP 주소 할당
+→ 작업
+→ 탄력적 IP 주소 연결
+→ loop-server EC2 선택
+```
+
+#### 2. DNS A 레코드 생성
+
+도메인 관리 서비스(Route 53, Cloudflare, Gabia 등)에서 API 서브도메인을 EC2 Elastic IP로 연결한다.
+
+```txt
+Type: A
+Name: api
+Value: <EC2 Elastic IP>
+TTL: Auto 또는 300
+```
+
+예시:
+
+```txt
+api.loop-example.com → 3.39.xxx.xxx
+```
+
+#### 3. EC2 보안 그룹 확인
+
+운영 API 도메인 구조에서는 외부에 80, 443만 공개한다.
+
+```txt
+22   SSH    내 IP만 허용
+80   HTTP   0.0.0.0/0
+443  HTTPS  0.0.0.0/0
+3000 NestJS 외부 공개 X
+```
+
+3000번은 Nginx가 EC2 내부에서만 접근하게 만드는 것이 안전하다.
+
+#### 4. EC2에 Nginx 설치
+
+EC2 접속 후 실행:
+
+```bash
+sudo apt update
+sudo apt install nginx -y
+sudo systemctl enable nginx
+sudo systemctl start nginx
+```
+
+Nginx 역할:
+
+```txt
+https://api.<내도메인> 요청 수신
+→ http://127.0.0.1:3000 NestJS 서버로 전달
+```
+
+#### 5. NestJS Docker 컨테이너를 내부 포트로 실행
+
+Nginx를 앞에 둘 때는 3000번을 외부 전체에 열지 않고 EC2 내부에서만 접근 가능하게 실행한다.
+
+```bash
+docker stop loop-server
+docker rm loop-server
+
+docker run -d \
+--name loop-server \
+--env-file .env.production \
+-p 127.0.0.1:3000:3000 \
+--restart always \
+loop-server
+```
+
+차이:
+
+```txt
+-p 3000:3000
+→ 외부에서 http://EC2_IP:3000 직접 접근 가능
+
+-p 127.0.0.1:3000:3000
+→ EC2 내부에서만 3000 접근 가능
+→ 외부는 Nginx를 통해서만 접근
+```
+
+#### 6. Nginx API 프록시 설정
+
+설정 파일 생성:
+
+```bash
+sudo nano /etc/nginx/sites-available/loop-api
+```
+
+내용:
+
+```nginx
+server {
+    listen 80;
+    server_name api.<내도메인>;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:3000;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+설정 활성화:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/loop-api /etc/nginx/sites-enabled/loop-api
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+확인:
+
+```bash
+curl http://api.<내도메인>
+```
+
+#### 7. HTTPS 인증서 적용
+
+Let's Encrypt 인증서를 사용하면 무료로 HTTPS를 적용할 수 있다.
+
+```bash
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d api.<내도메인>
+```
+
+성공 후 확인:
+
+```bash
+curl https://api.<내도메인>
+```
+
+인증서 자동 갱신 확인:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+#### 8. NestJS CORS 운영 도메인 설정
+
+관리자 웹 또는 웹뷰가 API를 호출한다면 운영 도메인을 CORS에 추가한다.
+
+`.env.production`
+
+```env
+ADMIN_WEB_ORIGIN=https://admin.<내도메인>
+APP_WEB_ORIGIN=https://app.<내도메인>
+```
+
+앱은 네이티브 HTTP 요청이라 일반적으로 브라우저 CORS의 직접 대상은 아니지만,
+Next.js 관리자 웹이나 웹뷰/웹 환경에서는 CORS 설정이 필요하다.
+
+#### 9. Flutter 운영 API_URL 변경
+
+Flutter 앱의 운영 환경 `.env`에 API 도메인을 넣는다.
+
+```env
+API_URL=https://api.<내도메인>
+```
+
+로컬/운영 구분:
+
+```env
+# Android emulator
+API_URL=http://10.0.2.2:3000
+
+# iOS simulator
+API_URL=http://localhost:3000
+
+# production
+API_URL=https://api.<내도메인>
+```
+
+앱 요청 흐름:
+
+```txt
+DioNetwork
+→ API_URL + /auth/login
+→ https://api.<내도메인>/auth/login
+→ Nginx
+→ NestJS Docker
+```
+
+#### 10. 운영 확인 체크리스트
+
+```bash
+docker ps
+docker logs loop-server
+sudo nginx -t
+sudo systemctl status nginx
+curl https://api.<내도메인>
+curl https://api.<내도메인>/api-docs-json
+```
+
+체크 포인트:
+
+```txt
+1. DNS가 EC2 Elastic IP를 바라보는지
+2. EC2 보안 그룹에서 80/443이 열려 있는지
+3. Docker 컨테이너가 127.0.0.1:3000으로 실행 중인지
+4. Nginx가 127.0.0.1:3000으로 프록시하는지
+5. HTTPS 인증서가 정상 발급됐는지
+6. Flutter API_URL이 https://api.<내도메인>인지
+7. 로그인/토큰 재발급/이미지 업로드/웹소켓이 운영 주소에서 동작하는지
+```
 
 ## 24. 소셜 로그인(kakao) (이메일 로그인 → 이메일로 사용자를 찾음 → user.id로 JWT 발급 카카오 로그인 → 카카오 ID로 사용자를 찾음 → user.id로 JWT 발급)
 
