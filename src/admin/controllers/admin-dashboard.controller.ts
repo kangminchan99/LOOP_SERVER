@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiForbiddenResponse,
@@ -10,6 +10,7 @@ import {
 import { AdminGuard } from '../../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AdminDashboardResponseDto } from '../dto/admin-dashboard-response.dto';
+import { AdminDailyStatsService } from '../services/admin-daily-stats.service';
 import { AdminDashboardService } from '../services/admin-dashboard.service';
 
 @ApiTags('admin')
@@ -17,7 +18,10 @@ import { AdminDashboardService } from '../services/admin-dashboard.service';
 @UseGuards(JwtAuthGuard, AdminGuard)
 @Controller('admin/dashboard')
 export class AdminDashboardController {
-  constructor(private readonly adminDashboardService: AdminDashboardService) {}
+  constructor(
+    private readonly adminDashboardService: AdminDashboardService,
+    private readonly adminDailyStatsService: AdminDailyStatsService,
+  ) {}
 
   @ApiOperation({ summary: '관리자 대시보드 통계 조회' })
   @ApiOkResponse({
@@ -31,5 +35,16 @@ export class AdminDashboardController {
   @Get()
   getDashboard(): Promise<AdminDashboardResponseDto> {
     return this.adminDashboardService.getDashboard();
+  }
+
+  @ApiOperation({ summary: '관리자 대시보드 일별 통계 재집계' })
+  @Post('daily-stats/rebuild')
+  async rebuildDailyStats(): Promise<{ message: string; count: number }> {
+    const stats = await this.adminDailyStatsService.rebuildDailyStats();
+
+    return {
+      message: '일별 통계 재집계가 완료되었습니다.',
+      count: stats.length,
+    };
   }
 }

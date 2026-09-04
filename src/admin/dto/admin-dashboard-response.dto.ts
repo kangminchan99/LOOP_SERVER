@@ -1,5 +1,31 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export class AdminDashboardDailyGrowthDto {
+  @ApiProperty({
+    example: '2026-09-01',
+    description: '집계 날짜',
+  })
+  date!: string;
+
+  @ApiProperty({
+    example: 3,
+    description: '해당 날짜에 가입한 유저 수',
+  })
+  newUsers!: number;
+
+  @ApiProperty({
+    example: 12,
+    description: '해당 날짜에 작성된 게시글 수',
+  })
+  newPosts!: number;
+
+  @ApiProperty({
+    example: 25,
+    description: '해당 날짜에 작성된 댓글 수',
+  })
+  newComments!: number;
+}
+
 export class AdminDashboardResponseDto {
   @ApiProperty({ example: 1248, description: '전체 유저 수' })
   totalUsers!: number;
@@ -30,4 +56,11 @@ export class AdminDashboardResponseDto {
     description: '대시보드 데이터 생성 시각',
   })
   generatedAt!: string;
+
+  @ApiProperty({
+    description: '최근 일자별 유저/게시글/댓글 증가 추이',
+    type: AdminDashboardDailyGrowthDto,
+    isArray: true,
+  })
+  dailyGrowth!: AdminDashboardDailyGrowthDto[];
 }

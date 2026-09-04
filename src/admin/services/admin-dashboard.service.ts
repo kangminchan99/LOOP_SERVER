@@ -67,6 +67,8 @@ export class AdminDashboardService {
       }),
     ]);
 
+    const dailyGrowth = await this.getDailyGrowth();
+
     return {
       totalUsers,
       totalPosts,
@@ -76,6 +78,7 @@ export class AdminDashboardService {
       todayUsers,
       todayPosts,
       todayComments,
+      dailyGrowth,
       generatedAt: new Date().toISOString(),
     };
   }
@@ -84,5 +87,53 @@ export class AdminDashboardService {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     return todayStart;
+  }
+
+  private async getDailyGrowth(): Promise<
+    {
+      date: string;
+      newUsers: number;
+      newPosts: number;
+      newComments: number;
+    }[]
+  > {
+    const [userRows, postRows, commentRows] = await Promise.all([
+      this.getDailyCountRows(this.usersRepository),
+      this.getDailyCountRows(this.postsRepository),
+      this.getDailyCountRows(this.commentsRepository),
+    ]);
+
+    const allDates = new Set<string>();
+
+    userRows.forEach((row) => allDates.add(row.date));
+    postRows.forEach((row) => allDates.add(row.date));
+    commentRows.forEach((row) => allDates.add(row.date));
+
+    const sortedDates = [...allDates].sort();
+
+    return sortedDates.map((date) => {
+      const userRow = userRows.find((row) => row.date === date);
+      const postRow = postRows.find((row) => row.date === date);
+      const commentRow = commentRows.find((row) => row.date === date);
+
+      return {
+        date,
+        newUsers: Number(userRow?.count ?? 0),
+        newPosts: Number(postRow?.count ?? 0),
+        newComments: Number(commentRow?.count ?? 0),
+      };
+    });
+  }
+
+  private getDailyCountRows<T extends { createdAt: Date }>(
+    repository: Repository<T>,
+  ): Promise<{ date: string; count: string }[]> {
+    return repository
+      .createQueryBuilder('entity')
+      .select(`TO_CHAR(entity."createdAt", 'YYYY-MM-DD')`, 'date')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('date')
+      .orderBy('date', 'ASC')
+      .getRawMany<{ date: string; count: string }>();
   }
 }
