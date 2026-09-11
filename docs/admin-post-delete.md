@@ -2,10 +2,14 @@
 
 ## 진행 방식과 현재 상태
 
-2026-09-11 코드 확인 기준, 아직 구현하지 않은 계획이다. 소스 코드는 사용자가 직접 수정하며 한 단계씩 진행한다.
+기본 구현이 반영되었으며 사용자가 동작 확인 완료를 보고했다. 아래 단계는 구현 순서를 재사용하기 위한 가이드다. 구현 상태와 테스트 통과 여부는 구분한다.
+
+- 코드 확인: 관리자 DELETE API, BFF, API 함수, 확인창, 테이블 연결, 완료 안내와 페이지 보정이 반영되어 있다.
+- 에이전트 실행 기록: 삭제 버튼 수정 시 해당 파일 ESLint 및 관리자 웹 TypeScript 검사 통과. 이후 테이블·페이지 변경까지 포함한 전체 lint/build는 이 문서 갱신에서 실행하지 않았다.
+- 사용자 확인 보고의 개별 테스트 케이스 범위는 확인되지 않았다. 아래 3·8단계 전체가 자동으로 통과한 것으로 간주하지 않는다.
 
 - 기존 `DELETE /posts/:id`는 `PostsService.remove()`에서 작성자 본인인지 검사한다. 이 검사를 제거하지 않는다.
-- `AdminPostsController`에는 목록 조회만 있으며 클래스에 `JwtAuthGuard + AdminGuard`가 적용되어 있다.
+- `AdminPostsController`에는 목록 조회와 삭제가 있으며 클래스에 `JwtAuthGuard + AdminGuard`가 적용되어 있다.
 - 기존 게시글 삭제는 물리 삭제이며 `posts:list:*` 캐시를 무효화한다.
 - 댓글의 게시글 관계에는 `onDelete: CASCADE`가 선언되어 있다. 실제 DB 제약도 확인해야 한다.
 - 관리자 테이블은 `loop_admin/src/features/posts/components/admin-posts-table.tsx`에 있다.
@@ -60,7 +64,7 @@
 
 ## 5단계 — 브라우저 API 함수
 
-신규: `loop_admin/src/features/posts/api/delete-admin-post.ts`
+신규: `loop_admin/src/features/posts/api/delete-admin-posts.ts` (함수명: `deleteAdminPost`)
 
 - 같은 출처 `/api/admin/posts/${id}`로 DELETE 요청을 보낸다.
 - 성공 시 void, 실패 시 사용자에게 표시할 Error를 전달한다.
