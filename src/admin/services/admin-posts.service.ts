@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { Post } from '../../posts/entities/post.entity';
 import { User } from '../../users/entities/user.entity';
 import { AdminPostListItemDto } from '../dto/admin-post-list-item.dto';
 import { GetAdminPostsQueryDto } from '../dto/get-admin-posts-query.dto';
+import { CacheService } from '../../cache/cache.service';
 
 @Injectable()
 export class AdminPostsService {
@@ -14,6 +15,8 @@ export class AdminPostsService {
 
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+
+    private readonly cacheService: CacheService,
   ) {}
 
   async findList(query: GetAdminPostsQueryDto): Promise<{
@@ -76,5 +79,18 @@ export class AdminPostsService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async remove(postId: number): Promise<void> {
+    // 1. 해당 게시글 삭제
+    const result = await this.postsRepository.delete(postId);
+
+    // 2. 삭제한 행이 없으면 존재하지 않는 게시글
+    if (result.affected === 0) {
+      throw new NotFoundException('게시글을 찾을 수 없습니다.');
+    }
+
+    // 3. 이전 게시글 목록이 나오지 않도록 캐시 삭제
+    await this.cacheService.deleteByPattern('posts:list:*');
   }
 }

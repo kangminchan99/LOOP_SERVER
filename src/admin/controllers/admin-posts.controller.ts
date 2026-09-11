@@ -1,7 +1,21 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
+  BadRequestException,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -36,5 +50,23 @@ export class AdminPostsController {
     @Query() query: GetAdminPostsQueryDto,
   ): Promise<AdminPostListPageDto> {
     return this.adminPostsService.findList(query);
+  }
+
+  @ApiOperation({ summary: '관리자 게시글 삭제' })
+  @ApiNoContentResponse({ description: '게시글 삭제 성공' })
+  @ApiBadRequestResponse({ description: '잘못된 게시글 ID입니다.' })
+  @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
+  @ApiForbiddenResponse({ description: '관리자 권한이 필요합니다.' })
+  @ApiNotFoundResponse({ description: '게시글을 찾을 수 없습니다.' })
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    // 1. 양의 안전한 정수인지 검사
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new BadRequestException('잘못된 게시글 ID입니다.');
+    }
+
+    // 2. 삭제 및 목록 캐시 무효화
+    await this.adminPostsService.remove(id);
   }
 }

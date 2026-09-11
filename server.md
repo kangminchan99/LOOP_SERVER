@@ -1,5 +1,11 @@
 # NestJS 서버 구축
 
+## 관리자 게시글 삭제 구현 계획
+
+- [관리자 게시글 삭제 단계별 가이드](docs/admin-post-delete.md)
+- 상태: 구현 전. 사용자가 소스 코드를 직접 수정하고, 한 단계씩 검증한다.
+- 기존 앱의 작성자 전용 삭제 API는 유지하고 관리자 전용 API를 추가한다.
+
 ## 0.pgAdmin & Swagger
 
 - pgAdmin: http://localhost:5050
