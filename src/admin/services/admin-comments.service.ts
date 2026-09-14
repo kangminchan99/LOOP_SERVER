@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { Comment } from '../../comments/entities/comment.entity';
@@ -65,5 +65,15 @@ export class AdminCommentsService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async remove(commentId: number): Promise<void> {
+    // 1. id에 해당하는 댓글 삭제
+    const result = await this.commentsRepository.delete(commentId);
+
+    // 2. 삭제된 댓글이 없으면 404처리
+    if (result.affected === 0) {
+      throw new NotFoundException('댓글을 찾을 수 없습니다.');
+    }
   }
 }

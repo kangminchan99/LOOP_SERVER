@@ -1,7 +1,21 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
+  BadRequestException,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -36,5 +50,23 @@ export class AdminCommentsController {
     @Query() query: GetAdminCommentsQueryDto,
   ): Promise<AdminCommentListPageDto> {
     return this.adminCommentsService.findList(query);
+  }
+
+  @ApiOperation({ summary: '관리자 댓글 삭제' })
+  @ApiNoContentResponse({ description: '댓글 삭제 성공' })
+  @ApiBadRequestResponse({ description: '잘못된 댓글 ID입니다.' })
+  @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
+  @ApiForbiddenResponse({ description: '관리자 권한이 필요합니다.' })
+  @ApiNotFoundResponse({ description: '댓글을 찾을 수 없습니다.' })
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    // 1. 양의 안전한 정수인지 검사
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new BadRequestException('잘못된 댓글 id입니다');
+    }
+
+    // 서비스에 삭제 요청
+    await this.adminCommentsService.remove(id);
   }
 }
