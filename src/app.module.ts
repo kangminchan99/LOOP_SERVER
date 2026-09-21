@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { createThrottlerOptions } from './config/throttler.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminModule } from './admin/admin.module';
 import { AiModule } from './ai/ai.module';
@@ -31,12 +32,11 @@ import { AdminSseModule } from './admin-sse/admin-sse.module';
     }),
 
     // 같은 사용자/IP가 60초 안에 100번 넘게 요청하면 차단 (전역 기본 제한)
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60_000,
-        limit: 100,
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: createThrottlerOptions,
+    }),
 
     BullModule.forRootAsync({
       imports: [ConfigModule],

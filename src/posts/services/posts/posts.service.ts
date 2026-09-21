@@ -94,6 +94,7 @@ export class PostsService {
       return cachedPage;
     }
 
+    // 사용자 1명과의 JOIN은 행을 늘리지 않는다. raw 조회에는 take 대신 SQL LIMIT 사용.
     const qb = this.postsRepository
       .createQueryBuilder('post')
       .innerJoin(User, 'user', 'user.id = post.authorId')
@@ -103,7 +104,7 @@ export class PostsService {
       .addSelect('post.createdAt', 'createdAt')
       .orderBy('post.createdAt', 'DESC')
       .addOrderBy('post.id', 'DESC')
-      .take(limit + 1);
+      .limit(limit + 1);
 
     if (cursor) {
       const [cursorCreatedAt, cursorPostId] = cursor.split('_');
@@ -170,7 +171,7 @@ export class PostsService {
       })
       .orderBy('post.createdAt', 'DESC')
       .addOrderBy('post.id', 'DESC')
-      .take(limit + 1);
+      .limit(limit + 1);
 
     if (cursor) {
       const [cursorCreatedAt, cursorPostId] = cursor.split('_');

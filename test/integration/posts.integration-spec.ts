@@ -166,6 +166,27 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
     expect(ttl).toBeLessThanOrEqual(10);
   });
 
+  it('목록·검색 모두 DB에서 limit+1개만 읽는다', async () => {
+    const qb = posts.createQueryBuilder('post');
+    const searchQb = posts.createQueryBuilder('post');
+    const read = jest.spyOn(qb, 'getRawMany');
+    const searchRead = jest.spyOn(searchQb, 'getRawMany');
+    jest
+      .spyOn(posts, 'createQueryBuilder')
+      .mockReturnValueOnce(qb)
+      .mockReturnValueOnce(searchQb);
+    await service.findListItems({ limit: 20 });
+    expect(qb.getSql()).toMatch(/LIMIT 21$/);
+    await expect(
+      read.mock.results[0].value as Promise<unknown[]>,
+    ).resolves.toHaveLength(21);
+    await service.searchListItems({ keyword: '테스트', limit: 5 });
+    expect(searchQb.getSql()).toMatch(/LIMIT 6$/);
+    await expect(
+      searchRead.mock.results[0].value as Promise<unknown[]>,
+    ).resolves.toHaveLength(6);
+  });
+
   it('실제 캐시 적중 시 SQL 조회를 생략하고 같은 JSON 응답을 반환한다', async () => {
     const first = await service.findListItems({ limit: 20 });
     const query = jest.spyOn(posts, 'createQueryBuilder');

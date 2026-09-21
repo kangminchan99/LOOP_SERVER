@@ -30,7 +30,7 @@ describe('PostsService', () => {
     addSelect: jest.fn(),
     orderBy: jest.fn(),
     addOrderBy: jest.fn(),
-    take: jest.fn(),
+    limit: jest.fn(),
     where: jest.fn(),
     getRawMany: jest.fn(),
   };
@@ -51,7 +51,7 @@ describe('PostsService', () => {
       qb.addSelect,
       qb.orderBy,
       qb.addOrderBy,
-      qb.take,
+      qb.limit,
       qb.where,
     ]) {
       method.mockReturnValue(qb);
@@ -98,7 +98,7 @@ describe('PostsService', () => {
     expect(posts.createQueryBuilder).toHaveBeenCalledWith('post');
     expect(qb.orderBy).toHaveBeenCalledWith('post.createdAt', 'DESC');
     expect(qb.addOrderBy).toHaveBeenCalledWith('post.id', 'DESC');
-    expect(qb.take).toHaveBeenCalledWith(21);
+    expect(qb.limit).toHaveBeenCalledWith(21);
     expect(qb.where).not.toHaveBeenCalled();
     expect(qb.getRawMany).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
@@ -120,7 +120,7 @@ describe('PostsService', () => {
 
     const result = await service.findListItems({ limit: 20 });
 
-    expect(qb.take).toHaveBeenCalledWith(21);
+    expect(qb.limit).toHaveBeenCalledWith(21);
     expect(result.items).toEqual(
       rows.slice(0, 20).map((row) => ({
         ...row,
@@ -158,7 +158,7 @@ describe('PostsService', () => {
       '(post.createdAt < :cursorCreatedAt OR (post.createdAt = :cursorCreatedAt AND post.id < :cursorPostId))',
       { cursorCreatedAt: createdAt, cursorPostId: 81 },
     );
-    expect(qb.take).toHaveBeenCalledWith(6);
+    expect(qb.limit).toHaveBeenCalledWith(6);
     expect(result.items).toHaveLength(5);
     expect(result.hasNext).toBe(true);
     expect(result.nextCursor).toBe('2026-09-21T12:00:00.123Z_76');

@@ -28,7 +28,7 @@ Docker Desktop이 실행된 상태에서 프로젝트 루트에서 실행한다.
 # 테스트 전용 컨테이너 실행 및 healthcheck 대기
 npm run test:integration:up
 
-# DB·Redis 6개 + HTTP 17개 테스트 실행
+# DB·Redis 7개 + HTTP 17개 테스트 실행
 npm run test:integration
 
 # 성공/실패 여부와 관계없이 테스트 종료 후 실행
@@ -47,6 +47,7 @@ npm run test:integration:down
 4. 빈 테이블에서 빈 마지막 페이지 반환.
 5. 게시글 수정 후 기존 캐시 제거 및 최신 제목 재조회.
 6. 짧은 TTL로 Redis의 실제 만료 동작 검증.
+7. 목록·검색의 실제 SQL에 LIMIT이 적용되고 raw 결과가 limit+1개인지 검증.
 
 ### HTTP API 검증 (17개)
 
@@ -77,6 +78,6 @@ CI에서 실행하려면 테스트 DB·Redis 준비와 종료 단계를 먼저 �
 ## 검증 상태
 
 테스트 전용 Docker 환경에서 `npm run test:integration -- --detectOpenHandles` 실행:
-DB·Redis 6개와 HTTP 17개, 총 23개 통과. 종료되지 않은 연결 경고 없음.
-단위 테스트는 18개 파일·65개 통과했고 린트·타입 검사·빌드도 통과했다.
+DB·Redis 7개와 HTTP 17개, 총 24개 통과. 종료되지 않은 연결 경고 없음.
+단위 테스트는 19개 파일·72개 통과했고 린트·타입 검사·빌드도 통과했다.
 이 결과는 기능 검증이며 운영 환경이나 부하 상황에서의 성능 보장은 아니다.
