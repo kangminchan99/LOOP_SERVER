@@ -1,4 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { INestApplication } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import request from 'supertest';
+import type { App } from 'supertest/types';
 import { setTimeout as delay } from 'node:timers/promises';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -11,6 +16,9 @@ import { Post } from '../../src/posts/entities/post.entity';
 import { PostsService } from '../../src/posts/services/posts/posts.service';
 import { NotificationQueueService } from '../../src/queues/notification-queue/services/notification-queue/notification-queue.service';
 import { User } from '../../src/users/entities/user.entity';
+import { PostsController } from '../../src/posts/controllers/posts/posts.controller';
+import { JwtStrategy } from '../../src/auth/strategies/jwt.strategy';
+import { createValidationPipe } from '../../src/common/pipes/create-validation-pipe';
 
 // AppModule과 .env를 읽지 않는다. 개발 DB/Redis로 연결되는 것을 방지한다.
 const schema = `integration_${randomUUID().replaceAll('-', '')}`;
@@ -25,6 +33,10 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
   let posts: Repository<Post>;
   let authorId: number;
   let expectedIds: number[];
+  let app: INestApplication<App> | undefined;
+  const jwt = new JwtService({ secret: 'http-integration-only-secret' });
+  const authHeader = (userId: number) =>
+    `Bearer ${jwt.sign({ sub: userId, type: 'access', role: 'USER' }, { expiresIn: '5m' })}`;
 
   beforeAll(async () => {
     // 먼저 빠르게 연결 확인. 실패하면 CacheService의 자동 재연결을 시작하지 않는다.
@@ -59,7 +71,10 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
     posts = source.getRepository(Post);
 
     module = await Test.createTestingModule({
+      imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
+      controllers: [PostsController],
       providers: [
+        JwtStrategy,
         PostsService,
         CacheService,
         { provide: getRepositoryToken(Post), useValue: posts },
@@ -68,6 +83,7 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
           useValue: new ConfigService({
             REDIS_HOST: '127.0.0.1',
             REDIS_PORT: 56379,
+            JWT_SECRET: 'http-integration-only-secret',
           }),
         },
         // 이번 대상이 아닌 유료 API와 알림 큐만 mock으로 분리한다.
@@ -82,6 +98,9 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
     }).compile();
     cache = module.get(CacheService);
     service = module.get(PostsService);
+    app = module.createNestApplication<INestApplication<App>>();
+    app.useGlobalPipes(createValidationPipe());
+    await app.init();
   });
 
   beforeEach(async () => {
@@ -117,7 +136,8 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
   afterEach(() => jest.restoreAllMocks());
   afterAll(async () => {
     try {
-      await module?.close();
+      if (app) await app.close();
+      else await module?.close();
     } finally {
       try {
         if (source?.isInitialized) {
@@ -205,5 +225,150 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
       await delay(100);
     }
     await expect(cache.getJson(key)).resolves.toBeNull();
+  });
+
+  describe('게시글 HTTP API', () => {
+    const http = () => request(app!.getHttpServer());
+
+    it('GET /posts는 기본 20개와 다음 커서를 반환하고 다음 페이지를 조회한다', async () => {
+      const first = await http().get('/posts').expect(200);
+      const body = first.body as {
+        items: { postId: number }[];
+        nextCursor: string;
+        hasNext: boolean;
+      };
+      expect(body.items.map((item) => item.postId)).toEqual(
+        expectedIds.slice(0, 20),
+      );
+      expect(body.hasNext).toBe(true);
+      expect(typeof body.nextCursor).toBe('string');
+      const second = await http()
+        .get('/posts')
+        .query({ limit: 20, cursor: body.nextCursor })
+        .expect(200);
+      const next = second.body as { items: { postId: number }[] };
+      expect(next.items.map((item) => item.postId)).toEqual(
+        expectedIds.slice(20, 40),
+      );
+    });
+
+    it.each(['0', '51', '-1', '1.5', 'abc'])(
+      '잘못된 limit=%s는 400',
+      async (limit) => {
+        await http().get('/posts').query({ limit }).expect(400);
+      },
+    );
+
+    it.each([
+      'invalid',
+      '2026-02-30T12:00:00.000Z_1',
+      '2026-09-21T12:00:00.000Z_0',
+      '2026-09-21T12:00:00.000Z_2147483648',
+    ])('잘못된 cursor=%s는 목록·검색 모두 400', async (cursor) => {
+      await http().get('/posts').query({ cursor }).expect(400);
+      await http()
+        .get('/posts/search')
+        .query({ keyword: '테스트', cursor })
+        .expect(400);
+    });
+
+    it('알 수 없는 쿼리 필드는 400', async () => {
+      await http().get('/posts').query({ unexpected: 'value' }).expect(400);
+    });
+
+    it('존재하지 않는 게시글은 404, 숫자가 아닌 경로 ID는 400', async () => {
+      await http().get('/posts/2147483647').expect(404);
+      await http().get('/posts/not-a-number').expect(400);
+    });
+
+    it('토큰 없는 작성·수정·삭제는 401', async () => {
+      const count = await posts.count();
+      await http()
+        .post('/posts')
+        .send({ title: '제목', content: '본문' })
+        .expect(401);
+      await http()
+        .patch(`/posts/${expectedIds[0]}`)
+        .send({ title: '수정' })
+        .expect(401);
+      await http().delete(`/posts/${expectedIds[0]}`).expect(401);
+      expect(await posts.count()).toBe(count);
+    });
+
+    it('잘못된 서명·만료·refresh 토큰은 401', async () => {
+      const tokens = [
+        jwt.sign({ sub: authorId, type: 'access' }, { secret: 'wrong-secret' }),
+        jwt.sign({ sub: authorId, type: 'access' }, { expiresIn: -1 }),
+        jwt.sign({ sub: authorId, type: 'refresh' }),
+      ];
+      for (const token of tokens) {
+        await http()
+          .post('/posts')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ title: '제목', content: '본문' })
+          .expect(401);
+      }
+    });
+
+    it('인증된 사용자도 잘못된 본문·작성자 위조 필드는 400', async () => {
+      const count = await posts.count();
+      for (const body of [
+        { title: '', content: '본문' },
+        { title: '제목' },
+        { title: '제목', content: '본문', authorId: 123 },
+      ]) {
+        await http()
+          .post('/posts')
+          .set('Authorization', authHeader(authorId))
+          .send(body)
+          .expect(400);
+      }
+      expect(await posts.count()).toBe(count);
+    });
+
+    it('다른 사용자의 수정·삭제는 403이며 DB 데이터는 유지된다', async () => {
+      const other = await source
+        .getRepository(User)
+        .save({ nickname: '다른 사용자' });
+      const id = expectedIds[0];
+      const before = await posts.findOneByOrFail({ id });
+      await http()
+        .patch(`/posts/${id}`)
+        .set('Authorization', authHeader(other.id))
+        .send({ title: '변경' })
+        .expect(403);
+      await http()
+        .delete(`/posts/${id}`)
+        .set('Authorization', authHeader(other.id))
+        .expect(403);
+      expect(await posts.findOneByOrFail({ id })).toEqual(before);
+    });
+
+    it('본인은 작성·상세 조회·수정·삭제할 수 있고 DB에도 반영된다', async () => {
+      const created = await http()
+        .post('/posts')
+        .set('Authorization', authHeader(authorId))
+        .send({ title: '새 게시글', content: '본문' })
+        .expect(201);
+      const body = created.body as { id: number; authorId: number };
+      expect(body.authorId).toBe(authorId);
+      expect((await posts.findOneByOrFail({ id: body.id })).title).toBe(
+        '새 게시글',
+      );
+      await http().get(`/posts/${body.id}`).expect(200);
+      await http()
+        .patch(`/posts/${body.id}`)
+        .set('Authorization', authHeader(authorId))
+        .send({ title: '수정 제목' })
+        .expect(200);
+      expect((await posts.findOneByOrFail({ id: body.id })).title).toBe(
+        '수정 제목',
+      );
+      await http()
+        .delete(`/posts/${body.id}`)
+        .set('Authorization', authHeader(authorId))
+        .expect(200);
+      expect(await posts.findOneBy({ id: body.id })).toBeNull();
+    });
   });
 });

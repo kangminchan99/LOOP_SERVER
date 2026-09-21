@@ -7,7 +7,9 @@ import {
   IsString,
   Max,
   Min,
+  Validate,
 } from 'class-validator';
+import { PostCursorValidator } from './post-cursor.validator';
 
 export class GetPostsSearchQueryDto {
   @ApiProperty({
@@ -51,5 +53,6 @@ export class GetPostsSearchQueryDto {
     return String(value);
   })
   @IsString()
+  @Validate(PostCursorValidator)
   cursor?: string;
 }

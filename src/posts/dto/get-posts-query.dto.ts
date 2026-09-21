@@ -1,6 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  Validate,
+} from 'class-validator';
+import { PostCursorValidator } from './post-cursor.validator';
 
 export class GetPostsQueryDto {
   @ApiPropertyOptional({
@@ -35,5 +43,6 @@ export class GetPostsQueryDto {
     return String(value);
   })
   @IsString()
+  @Validate(PostCursorValidator)
   cursor?: string;
 }

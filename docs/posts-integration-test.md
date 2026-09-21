@@ -5,7 +5,9 @@
 단위 테스트의 가짜 저장소 대신 실제 PostgreSQL과 Redis를 사용한다.
 실제 PostsService, TypeORM Repository, CacheService를 실행한다.
 AI와 알림 큐는 이번 검증 대상이 아니므로 mock으로 대체한다.
-HTTP 인증·권한·요청 검증, 운영 마이그레이션, 동시 요청 성능은 별도 테스트 대상이다.
+게시글 Controller·JWT Guard/Strategy·공통 ValidationPipe를 등록한 Nest 테스트 앱에
+Supertest로 HTTP 요청을 보내 인증·권한·요청 검증도 확인한다.
+AppModule 전체 부팅, 전역 Throttler, CORS, 운영 마이그레이션, 동시 요청 성능은 이번 대상이 아니다.
 
 ## 격리 방식
 
@@ -26,7 +28,7 @@ Docker Desktop이 실행된 상태에서 프로젝트 루트에서 실행한다.
 # 테스트 전용 컨테이너 실행 및 healthcheck 대기
 npm run test:integration:up
 
-# 실제 DB·Redis 통합 테스트 6개 실행
+# DB·Redis 6개 + HTTP 17개 테스트 실행
 npm run test:integration
 
 # 성공/실패 여부와 관계없이 테스트 종료 후 실행
@@ -46,6 +48,21 @@ npm run test:integration:down
 5. 게시글 수정 후 기존 캐시 제거 및 최신 제목 재조회.
 6. 짧은 TTL로 Redis의 실제 만료 동작 검증.
 
+### HTTP API 검증 (17개)
+
+- 정상 목록 및 서버 발급 커서로 다음 페이지 조회: 200.
+- limit 범위·정수 검증, 잘못된 커서·날짜·ID, 알 수 없는 필드: 400.
+- 없는 게시글: 404. 숫자가 아닌 경로 ID: 400.
+- 토큰 없음, 잘못된 서명, 만료, refresh 타입: 401.
+- 다른 사용자의 수정·삭제: 403 및 DB 데이터 유지.
+- 유효한 토큰으로 작성·조회·수정·삭제 성공 및 DB 반영.
+- 잘못된 작성 본문과 authorId 위조 필드: 400 및 데이터 미생성.
+
+JWT는 테스트 전용 키로 직접 서명하며 실제 Guard/Strategy를 우회하지 않는다.
+로그인 API 자체는 이번 테스트에 포함하지 않는다.
+서버와 테스트 앱은 `src/common/pipes/create-validation-pipe.ts`를 공유한다.
+게시글 커서는 서버가 발급하는 ISO 밀리초 UTC 시간 + 양의 PostgreSQL integer ID 형식만 허용한다.
+
 현재 데이터가 변하지 않는 조건의 페이지 순회를 검증한다.
 조회 중 게시글 작성·삭제가 발생하는 동시성 시나리오와 처리량은 아직 검증하지 않는다.
 TTL 테스트는 가짜 타이머가 아니라 실제 시간을 사용한다.
@@ -59,4 +76,7 @@ CI에서 실행하려면 테스트 DB·Redis 준비와 종료 단계를 먼저 �
 
 ## 검증 상태
 
-실제 Docker 기반 실행 결과는 아직 미확인이다. 위 명령의 테스트 통과 결과를 확인한 뒤 통합 검증 완료로 판단한다.
+테스트 전용 Docker 환경에서 `npm run test:integration -- --detectOpenHandles` 실행:
+DB·Redis 6개와 HTTP 17개, 총 23개 통과. 종료되지 않은 연결 경고 없음.
+단위 테스트는 18개 파일·65개 통과했고 린트·타입 검사·빌드도 통과했다.
+이 결과는 기능 검증이며 운영 환경이나 부하 상황에서의 성능 보장은 아니다.
