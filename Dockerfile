@@ -1,5 +1,5 @@
 # ─── Stage 1: Build ──────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:24.21.0-alpine3.24 AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN npm run build
 RUN npm ci --only=production
 
 # ─── Stage 2: Production ─────────────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:24.21.0-alpine3.24 AS production
 
 WORKDIR /app
 

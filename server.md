@@ -1086,6 +1086,13 @@ chat:send
 
 ## 대용량 데이터 처리 및 동시 요청 성능 개선
 
+### 실서비스 운영 학습 — 현재 진행 방향
+
+- [실서비스 운영 로드맵](docs/production-operations-roadmap.md): 관측 기반 → 인기 게시글 부하 → 동시 작성 정합성 → 장애 복구 → 데이터 운영 → 안전한 릴리스.
+- 첫 단계는 Node 실행 환경 정렬 준비다. 확인 시 로컬 Node 20 / CI 24 / Docker 20으로 달라, Node 24 LTS 호환성을 먼저 맞춘 후 HTTP 지표를 수집한다.
+- 메트릭 수집 → Prometheus → Grafana로 시작하고, 필요 시 DB·큐 관찰과 OpenTelemetry 추적으로 확장한다.
+- 현재는 문서 계획 단계이며, 소스 코드·패키지·Docker 설정은 변경하지 않았다.
+
 ### 트래픽 집중 시 병목 검증 계획
 
 - 상세 절차: [게시글 목록 단계별 부하 테스트](docs/posts-load-test.md)

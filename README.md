@@ -27,6 +27,8 @@
 
 ## Project setup
 
+운영 학습은 [실서비스 운영 로드맵](docs/production-operations-roadmap.md)과 [서버 작업 문서](server.md)를 참고한다.
+
 ```bash
 $ npm install
 ```
@@ -71,6 +73,8 @@ $ mau deploy
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
 ## Resources
+
+- [게시글 PostgreSQL·Redis 통합 테스트](docs/posts-integration-test.md)
 
 Check out a few resources that may come in handy when working with NestJS:
 
