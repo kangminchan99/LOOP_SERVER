@@ -4,8 +4,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { createThrottlerOptions } from './config/throttler.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminSseModule } from './admin-sse/admin-sse.module';
 import { AdminModule } from './admin/admin.module';
 import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
@@ -13,14 +13,14 @@ import { AppService } from './app.service';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './cache/cache.module';
+import { ChatModule } from './chat/chat.module';
 import { CommentsModule } from './comments/comments.module';
+import { createThrottlerOptions } from './config/throttler.config';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PostsModule } from './posts/posts.module';
 import { NotificationQueueModule } from './queues/notification-queue/notification-queue.module';
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
-import { ChatModule } from './chat/chat.module';
-import { AdminSseModule } from './admin-sse/admin-sse.module';
 
 @Module({
   imports: [
@@ -61,9 +61,10 @@ import { AdminSseModule } from './admin-sse/admin-sse.module';
         password: config.get('DB_PASSWORD'), // .env 파일의 DB_PASSWORD 값
         database: config.get('DB_NAME'), // .env 파일의 DB_NAME 값
         entities: [__dirname + '/**/*.entity{.ts,.js}'], // *.entity.ts 파일을 자동으로 찾아 테이블로 등록
+        // 개발 환경에서 명시적으로 허용한 경우에만 테이블 자동 변경
         synchronize:
-          config.get('DB_SYNC') === 'true' ||
-          config.get('NODE_ENV') !== 'production', // 개발환경 또는 DB_SYNC=true일 때만 자동 반영
+          config.get<string>('NODE_ENV') === 'development' &&
+          config.get<string>('DB_SYNC') === 'true',
         ssl:
           config.get('NODE_ENV') === 'production'
             ? { rejectUnauthorized: false }

@@ -22,7 +22,10 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:integration": "jest --config ./test/jest-integration.json --runInBand",
     "test:integration:up": "docker compose -f docker-compose.integration.yml up -d --wait",
-    "test:integration:down": "docker compose -f docker-compose.integration.yml down"
+    "test:integration:down": "docker compose -f docker-compose.integration.yml down",
+    "typeorm:test": "NODE_ENV=test typeorm-ts-node-commonjs",
+    "migration:test:show": "npm run typeorm:test -- migration:show -d src/database/data-source.ts",
+    "migration:test:run": "npm run typeorm:test -- migration:run -d src/database/data-source.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1051.0",
