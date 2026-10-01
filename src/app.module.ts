@@ -16,6 +16,7 @@ import { CacheModule } from './cache/cache.module';
 import { ChatModule } from './chat/chat.module';
 import { CommentsModule } from './comments/comments.module';
 import { createThrottlerOptions } from './config/throttler.config';
+import { CouponsModule } from './coupons/coupons.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PostsModule } from './posts/posts.module';
 import { NotificationQueueModule } from './queues/notification-queue/notification-queue.module';
@@ -82,6 +83,7 @@ import { UsersModule } from './users/users.module';
         },
       }),
     }),
+    CouponsModule,
     CacheModule,
     UsersModule,
     AuthModule,

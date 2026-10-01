@@ -15,6 +15,8 @@ import { AdminDailyStatsService } from './services/admin-daily-stats.service';
 import { AdminDashboardService } from './services/admin-dashboard.service';
 import { AdminPostsService } from './services/admin-posts.service';
 import { AdminUsersService } from './services/admin-users.service';
+import { CouponsModule } from '../coupons/coupons.module';
+import { AdminCouponEventsController } from './controllers/admin-coupon-events.controller';
 
 @Module({
   imports: [
@@ -26,12 +28,14 @@ import { AdminUsersService } from './services/admin-users.service';
       DailyServiceStat,
     ]),
     UploadModule,
+    CouponsModule,
   ],
   controllers: [
     AdminDashboardController,
     AdminUsersController,
     AdminPostsController,
     AdminCommentsController,
+    AdminCouponEventsController,
   ],
   providers: [
     AdminDashboardService,
