@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { CouponEvent } from '../entities/coupon-event.entity';
+import type { CouponCursor } from '../types/coupon-cursor';
 
 // 이벤트 생성 시 저장할 값만 지정한다.
 // 날짜는 Service에서 검증하고 Date로 변환해서 전달한다.
@@ -12,6 +13,50 @@ export type CreateCouponEventInput = Pick<
 
 @Injectable()
 export class CouponEventsRepository {
+  findById(manager: EntityManager, id: number): Promise<CouponEvent | null> {
+    return manager.findOneBy(CouponEvent, { id });
+  }
+
+  findPage(
+    manager: EntityManager,
+    limit: number,
+    cursor?: CouponCursor,
+  ): Promise<CouponEvent[]> {
+    const query = manager
+      .createQueryBuilder(CouponEvent, 'event')
+      .orderBy('event.createdAt', 'DESC')
+      .addOrderBy('event.id', 'DESC')
+      .take(limit + 1);
+    if (cursor)
+      query.where('(event.createdAt, event.id) < (:date, :id)', cursor);
+    return query.getMany();
+  }
+
+  // 계정 삭제만 대기시킨다. 다른 사용자의 계정이나 일반 프로필 수정은 막지 않는다.
+  findUserForKeyShare(
+    manager: EntityManager,
+    id: number,
+  ): Promise<User | null> {
+    return manager.findOne(User, {
+      where: { id },
+      select: { id: true },
+      lock: { mode: 'for_key_share' },
+    });
+  }
+
+  async incrementIssuedCount(
+    manager: EntityManager,
+    id: number,
+  ): Promise<boolean> {
+    const result = await manager
+      .createQueryBuilder()
+      .update(CouponEvent)
+      .set({ issuedCount: () => '"issuedCount" + 1' })
+      .where('id = :id AND "issuedCount" < "totalQuantity"', { id })
+      .execute();
+    return result.affected === 1;
+  }
+
   async create(
     manager: EntityManager,
     input: CreateCouponEventInput,

@@ -75,7 +75,7 @@ With Mau, you can deploy your application in just a few clicks, allowing you to 
 ## Resources
 
 - [게시글 PostgreSQL·Redis 통합 테스트](docs/posts-integration-test.md)
-- [선착순 이벤트·한정 쿠폰 발급 설계와 단계별 구현](docs/limited-coupon-events.md) — 구현 전 계획, 중복·초과 발급 방지와 동시성 검증 기준.
+- [선착순 이벤트·한정 쿠폰 발급 설계와 단계별 구현](docs/limited-coupon-events.md) — 서버 발급·조회 API, 중복·초과 발급 방지, 격리 PostgreSQL 통합 테스트와 후속 운영 검증 기준.
 
 Check out a few resources that may come in handy when working with NestJS:
 

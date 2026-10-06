@@ -1,8 +1,39 @@
 # 선착순 이벤트·한정 쿠폰 발급 — 설계와 단계별 구현
 
-상태: **설계 단계 / 미구현**. 기준일: 2026-09-29.
+상태: **서버 발급·조회 API 구현 / 격리 PostgreSQL 통합 테스트 적용**. 기준일: 2026-10-06.
 
-이 문서는 현재 Loop 서버를 확인한 구현 계획이다. 쿠폰 코드·DB 테이블·API·테스트가 이미 존재하거나 검증됐다는 뜻이 아니다. 문서 단계에서는 패키지 설치, 서버 실행, DB 변경, 부하 테스트를 하지 않는다. 구현은 단계별로 검증한 뒤 진행한다.
+관리자 이벤트 생성·활성 변경, 사용자 이벤트 목록·상세, 본인 쿠폰 발급·단건·목록 조회를 구현했다. 아래 설계에는 후속 운영 검증 항목도 포함한다. Flutter 연동, 운영 DB 이행, 대규모 부하·장애 복구 검증, 쿠폰 사용/포인트 지급은 완료 범위가 아니다.
+
+### 구현된 사용자 API
+
+모두 Access JWT가 필요하며 현재 계정 존재를 DB에서 확인한다. 응답은 `Cache-Control: private, no-store`다.
+
+| Method | URL | 응답 |
+| --- | --- | --- |
+| GET | `/coupon-events?limit=20&cursor=...` | 비활성 포함 최신 이벤트, `items/nextCursor/hasNext/serverTime` |
+| GET | `/coupon-events/:eventId` | 이벤트 상세·잔여량 스냅샷 |
+| PUT | `/coupon-events/:eventId/my-coupon` | 최초 발급 201 / 기존 쿠폰 200, 본문 생략 또는 `{}` |
+| GET | `/coupon-events/:eventId/my-coupon` | 본인 쿠폰 200 / 미발급 404, 조회는 발급하지 않음 |
+| GET | `/coupons/me?limit=20&cursor=...` | 본인 쿠폰만 최신순, 만료 쿠폰 포함 |
+
+- 쿠폰 응답: `id/eventId/eventTitle/issuedAt/expiresAt/status/serverTime`. 상태는 `ISSUED/EXPIRED`이며 사용 기능은 없다.
+- 목록은 기본 20개, 최대 50개이며 응답의 `nextCursor`를 그대로 URL 인코딩해 다음 요청에 전달한다.
+- 사용자 API의 오류는 `statusCode/code/message`로 반환한다. 기존 관리자 API는 Nest 표준 오류 형식을 유지한다.
+- 발급 요청의 연결이 끊겼다면 같은 계정의 단건 GET으로 확인한다. 404면 동일 PUT을 다시 호출할 수 있다. 클라이언트 네트워크 오류 자체는 발급 실패를 의미하지 않는다.
+- 트랜잭션 순서: 계정 `FOR KEY SHARE` → 이벤트 `FOR UPDATE` → 기존 쿠폰 확인 → DB 현재 시각/조건 검증 → 쿠폰 삽입 + 수량 증가 → 커밋.
+- 트랜잭션별 lock timeout 1초, statement timeout 최대 3초. 교착/직렬화 실패만 최대 2회 추가 재시도한다. 5초는 재시도 시작/풀 획득 후 검사 예산이지 **전체 HTTP 응답의 엄격한 5초 취소 보장은 아니다**. PostgreSQL 16에서는 각 SQL 제한과 풀 획득 제한을 구분해야 한다.
+- 기존 AppModule의 `DB_POOL_CONNECTION_TIMEOUT_MS` 기본값은 2초다. 운영에서는 0(무제한)으로 두지 않는다. 연결 오류는 자동 트랜잭션 재실행 없이 결과 조회를 안내한다.
+
+### 로컬 검증
+
+```bash
+npm run test:integration:up
+npm run test:integration -- --runTestsByPath test/integration/coupons.integration-spec.ts
+npm test -- --runInBand
+npm run build
+```
+
+통합 테스트는 `127.0.0.1:55432/loop_integration_test`에서 실행별 임시 스키마에 실제 마이그레이션을 적용하고 그 스키마만 정리한다. 개발 DB·운영 DB와 외부 AWS/FCM/OpenAI를 사용하지 않는다. 동일 계정 동시 10/25/50회, 25명이 7장에 참여, 발급 후 재요청, 타 계정 접근 제한, 커서, 롤백, 잠금 시간 초과, 대기 중 종료, 계정 삭제 경합을 확인한다. 이것은 정합성 테스트이며 운영 처리량 보증이나 실제 응답 패킷 유실 실험을 대체하지 않는다.
 
 ## 1. 만들 기능과 학습 목표
 
@@ -39,7 +70,7 @@
 | `src/auth/strategies/jwt.strategy.ts`                      | 토큰에서 사용자 ID·role을 반환, DB 재조회 없음        | 삭제된 사용자·변경된 관리자 권한을 별도로 확인해야 함             |
 | `src/common/decorators/current-user.decorator.ts`          | `@CurrentUser()`가 사용자 ID 숫자를 반환              | body의 userId를 신뢰하거나 받지 않음                              |
 | `src/auth/guards/admin.guard.ts`                           | 토큰의 ADMIN 권한 확인                                | 신규 관리자 변경 작업은 DB의 현재 role도 확인                     |
-| `src/app.module.ts`                                        | 엔티티 자동 탐색, 비운영 환경 synchronize 활성        | 엔티티 파일만 추가해도 재시작 시 DB 변경 가능                     |
+| `src/app.module.ts`                                        | 엔티티 자동 탐색, 명시적 개발 설정에서만 synchronize 사용 | 마이그레이션과 자동 변경을 혼용하지 않고 환경 설정을 확인         |
 | `src/config/throttler.config.ts`                           | 기본 60초 100회, 명시적 개발 부하 모드에서 해제       | 쿠폰 중복/재고 보장과 요청 제한은 서로 다른 문제                  |
 | `test/integration/posts.integration-spec.ts`               | 실제 DB, 실행별 임시 스키마, 좁은 Nest 테스트 앱      | 쿠폰 통합 테스트의 격리 방식으로 재사용                           |
 
@@ -212,7 +243,7 @@ Service가 `DataSource.transaction('READ COMMITTED', ...)` 경계를 소유한�
 
 관측 지표에 userId·couponId를 label로 넣지 않는다. 이벤트도 무제한 고유 ID label을 만들지 않는다. 구조화 로그는 correlation ID·결과·지연 위주이며 JWT·이메일·쿠폰 비밀값을 남기지 않는다. 관리자 생성/활성 변경은 누가 무엇을 언제 바꿨는지 감사 기록을 남기는 운영 기준을 정한다.
 
-## 8. 파일 배치 — 전부 신규 예정
+## 8. 파일 배치
 
 ```text
 src/coupons/
@@ -225,19 +256,24 @@ src/coupons/
     user-coupons.repository.ts
   services/
     coupon-events.service.ts
-    coupon-claims.service.ts
+    user-coupons.service.ts
+    coupon-transactions.service.ts
   controllers/
     coupon-events.controller.ts
-    my-coupons.controller.ts
+    user-coupons.controller.ts
   dto/
     create-coupon-event.dto.ts
     update-coupon-event-activation.dto.ts
-    get-coupon-events-query.dto.ts
-    get-my-coupons-query.dto.ts
+    get-coupons-query.dto.ts
     coupon-event-response.dto.ts
-    coupon-event-list-page.dto.ts
+    coupon-list-page.dto.ts
     user-coupon-response.dto.ts
-    user-coupon-list-page.dto.ts
+  filters/
+    coupon-exception.filter.ts
+  pipes/
+    coupon-event-id.pipe.ts
+  types/
+    coupon-cursor.ts
 
 src/admin/controllers/admin-coupon-events.controller.ts
 src/database/data-source.ts
