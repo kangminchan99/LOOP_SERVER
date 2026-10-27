@@ -19,6 +19,11 @@ import { User } from '../../src/users/entities/user.entity';
 import { PostsController } from '../../src/posts/controllers/posts/posts.controller';
 import { JwtStrategy } from '../../src/auth/strategies/jwt.strategy';
 import { createValidationPipe } from '../../src/common/pipes/create-validation-pipe';
+import { UserBlocksController } from '../../src/user-blocks/controllers/user-blocks.controller';
+import { UserBlock } from '../../src/user-blocks/entities/user-block.entity';
+import { UserBlocksRepository } from '../../src/user-blocks/repositories/user-blocks-repository';
+import { UserBlocksService } from '../../src/user-blocks/services/user-blocks.service';
+import type { PostListPageDto } from '../../src/posts/dto/post-list-page.dto';
 
 // AppModule과 .env를 읽지 않는다. 개발 DB/Redis로 연결되는 것을 방지한다.
 const schema = `integration_${randomUUID().replaceAll('-', '')}`;
@@ -60,9 +65,14 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
       password: 'loop_test_only',
       database: 'loop_integration_test',
       schema,
-      entities: [User, Post],
+      entities: [User, Post, UserBlock],
       synchronize: false,
-      extra: { connectionTimeoutMillis: 3000 },
+      extra: {
+        max: 8,
+        connectionTimeoutMillis: 3000,
+        // 차단 Repository의 raw SQL도 실행별 테스트 스키마로 한정한다.
+        options: `-c search_path=${schema}`,
+      },
     });
     await source.initialize();
     // 테스트 실행마다 새로운 스키마를 사용한다. 기존 테이블을 초기화하지 않는다.
@@ -72,11 +82,14 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
 
     module = await Test.createTestingModule({
       imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
-      controllers: [PostsController],
+      controllers: [PostsController, UserBlocksController],
       providers: [
         JwtStrategy,
         PostsService,
+        UserBlocksService,
+        UserBlocksRepository,
         CacheService,
+        { provide: DataSource, useValue: source },
         { provide: getRepositoryToken(Post), useValue: posts },
         {
           provide: ConfigService,
@@ -101,6 +114,7 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
     app = module.createNestApplication<INestApplication<App>>();
     app.useGlobalPipes(createValidationPipe());
     await app.init();
+    await app.listen(0, '127.0.0.1');
   });
 
   beforeEach(async () => {
@@ -391,5 +405,274 @@ describe('게시글 조회 + PostgreSQL + Redis 통합', () => {
         .expect(200);
       expect(await posts.findOneBy({ id: body.id })).toBeNull();
     });
+  });
+
+  describe('게시글 차단 가시성 HTTP API', () => {
+    const http = () => request(app!.getHttpServer());
+    let viewerId: number;
+    let otherViewerId: number;
+    let visibleAuthorId: number;
+    let visibleIds: number[];
+    let ownPostId: number;
+
+    const blockAuthor = (target = authorId, viewer = viewerId) =>
+      http()
+        .put(`/users/me/blocks/${target}`)
+        .set('Authorization', authHeader(viewer))
+        .expect(200);
+
+    const get = (path: string, viewer?: number) => {
+      const req = http().get(path);
+      return viewer === undefined
+        ? req
+        : req.set('Authorization', authHeader(viewer));
+    };
+
+    beforeEach(async () => {
+      const users = source.getRepository(User);
+      const savedUsers = await users.save([
+        { nickname: '조회자 A' },
+        { nickname: '조회자 C' },
+        { nickname: '보이는 작성자 D' },
+      ]);
+      [viewerId, otherViewerId, visibleAuthorId] = savedUsers.map(
+        (user) => user.id,
+      );
+      // 원본 첫 페이지는 차단 대상의 글로만 채워지고, 가시 글은 그보다 오래됐다.
+      const visible = await posts.save(
+        Array.from({ length: 27 }, (_, index) => ({
+          authorId: visibleAuthorId,
+          title: `테스트 허용 게시글 ${index}`,
+          content: '보이는 작성자의 본문',
+          createdAt: new Date('2026-09-19T12:00:00.123Z'),
+        })),
+      );
+      const own = await posts.save({
+        authorId: viewerId,
+        title: '테스트 내 게시글',
+        content: '조회자 자신의 본문',
+        createdAt: new Date('2026-09-18T12:00:00.123Z'),
+      });
+      ownPostId = own.id;
+      visibleIds = [
+        ...visible.map((post) => post.id).sort((a, b) => b - a),
+        own.id,
+      ];
+    });
+
+    it('원본 첫 20개가 모두 차단돼도 가시 글 20개와 올바른 다음 커서를 반환한다', async () => {
+      await blockAuthor();
+      const response = await get('/posts', viewerId)
+        .query({ limit: 20 })
+        .expect(200)
+        .expect('Cache-Control', 'private, no-store');
+      const page = response.body as PostListPageDto;
+      expect(page.items.map((post) => post.postId)).toEqual(
+        visibleIds.slice(0, 20),
+      );
+      expect(page.hasNext).toBe(true);
+      const last = page.items.at(-1)!;
+      expect(page.nextCursor).toBe(
+        `${last.createdAt as unknown as string}_${last.postId}`,
+      );
+    });
+
+    it.each(['/posts', '/posts/search'])(
+      '%s는 같은 작성 시각 경계에서도 차단 제외 후 커서를 중복·누락 없이 순회한다',
+      async (path) => {
+        await blockAuthor();
+        const ids: number[] = [];
+        let cursor: string | null = null;
+        for (let index = 0; index < 5; index++) {
+          const response = await get(path, viewerId)
+            .query({
+              limit: 10,
+              ...(path.endsWith('search') ? { keyword: '테스트' } : {}),
+              ...(cursor ? { cursor } : {}),
+            })
+            .expect(200);
+          const page = response.body as PostListPageDto;
+          ids.push(...page.items.map((post) => post.postId));
+          if (!page.hasNext) {
+            expect(page.nextCursor).toBeNull();
+            break;
+          }
+          cursor = page.nextCursor;
+        }
+        expect(ids).toEqual(visibleIds);
+        expect(new Set(ids).size).toBe(visibleIds.length);
+      },
+    );
+
+    it('차단한 작성자의 글만 검색되면 빈 마지막 페이지다', async () => {
+      await blockAuthor();
+      const response = await get('/posts/search', viewerId)
+        .query({ keyword: '테스트 게시글', limit: 20 })
+        .expect(200);
+      expect(response.body).toEqual({
+        items: [],
+        hasNext: false,
+        nextCursor: null,
+      });
+    });
+
+    it('로그아웃 및 차단하지 않은 다른 계정은 공개 글을 계속 조회한다', async () => {
+      await blockAuthor();
+      for (const viewer of [undefined, otherViewerId, authorId]) {
+        const list = (
+          await get('/posts', viewer).query({ limit: 20 }).expect(200)
+        ).body as PostListPageDto;
+        expect(list.items.map((post) => post.postId)).toEqual(
+          expectedIds.slice(0, 20),
+        );
+        const search = (
+          await get('/posts/search', viewer)
+            .query({ keyword: '테스트 게시글' })
+            .expect(200)
+        ).body as PostListPageDto;
+        expect(search.items.map((post) => post.postId)).toEqual(
+          expectedIds.slice(0, 20),
+        );
+        await get(`/posts/${expectedIds[0]}`, viewer).expect(200);
+      }
+    });
+
+    it('상세 직접 접근은 404이며 자신의 글·미차단 작성자의 글은 유지한다', async () => {
+      await blockAuthor();
+      const hidden = await get(`/posts/${expectedIds[0]}`, viewerId).expect(
+        404,
+      );
+      const absent = await get('/posts/2147483647', viewerId).expect(404);
+      expect(hidden.body).toEqual(absent.body);
+      expect(hidden.body).not.toHaveProperty('content');
+      await get(`/posts/${ownPostId}`, viewerId).expect(200);
+      await get(`/posts/${visibleIds[0]}`, viewerId).expect(200);
+    });
+
+    it('차단 방향은 단방향이며 다른 조회자의 차단 설정이 섞이지 않는다', async () => {
+      await blockAuthor();
+      await blockAuthor(visibleAuthorId, otherViewerId);
+      const a = (await get('/posts', viewerId).query({ limit: 50 }).expect(200))
+        .body as PostListPageDto;
+      expect(a.items.map((post) => post.postId)).toEqual(visibleIds);
+      const c = (
+        await get('/posts', otherViewerId).query({ limit: 50 }).expect(200)
+      ).body as PostListPageDto;
+      expect(c.items.map((post) => post.postId)).toEqual([
+        ...expectedIds,
+        ownPostId,
+      ]);
+      // A가 B를 차단했다고 해서 B의 조회에서 A의 글을 숨기지는 않는다.
+      await get(`/posts/${ownPostId}`, authorId).expect(200);
+    });
+
+    it('익명 캐시를 먼저 채워도 로그인 결과는 캐시를 읽거나 덮어쓰지 않는다', async () => {
+      await http().get('/posts').query({ limit: 20 }).expect(200);
+      const publicPage = await redis.get(firstPageKey);
+      expect(publicPage).not.toBeNull();
+      await blockAuthor();
+      const read = jest.spyOn(cache, 'getJson');
+      const write = jest.spyOn(cache, 'setJson');
+      const response = await get('/posts', viewerId)
+        .query({ limit: 20 })
+        .expect(200);
+      expect(
+        (response.body as PostListPageDto).items.map((post) => post.postId),
+      ).toEqual(visibleIds.slice(0, 20));
+      expect(read).not.toHaveBeenCalled();
+      expect(write).not.toHaveBeenCalled();
+      expect(await redis.get(firstPageKey)).toBe(publicPage);
+    });
+
+    it('로그인 결과는 빈 공용 캐시에도 저장하지 않는다', async () => {
+      await blockAuthor();
+      const key = 'posts:list:limit:13:cursor:first';
+      await get('/posts', viewerId).query({ limit: 13 }).expect(200);
+      expect(await redis.get(key)).toBeNull();
+      const anonymous = (await get('/posts').query({ limit: 13 }).expect(200))
+        .body as PostListPageDto;
+      expect(anonymous.items.map((post) => post.postId)).toEqual(
+        expectedIds.slice(0, 13),
+      );
+    });
+
+    it('차단 해제 직후 첫 페이지·검색·상세에서 글이 다시 보인다', async () => {
+      await blockAuthor();
+      await get(`/posts/${expectedIds[0]}`, viewerId).expect(404);
+      await http()
+        .delete(`/users/me/blocks/${authorId}`)
+        .set('Authorization', authHeader(viewerId))
+        .expect(204);
+      const page = (await get('/posts', viewerId).expect(200))
+        .body as PostListPageDto;
+      expect(page.items.map((post) => post.postId)).toEqual(
+        expectedIds.slice(0, 20),
+      );
+      const search = (
+        await get('/posts/search', viewerId)
+          .query({ keyword: '테스트 게시글' })
+          .expect(200)
+      ).body as PostListPageDto;
+      expect(search.items.map((post) => post.postId)).toEqual(
+        expectedIds.slice(0, 20),
+      );
+      await get(`/posts/${expectedIds[0]}`, viewerId).expect(200);
+    });
+
+    it('모든 작성자를 차단하면 목록은 빈 마지막 페이지다', async () => {
+      // 자신의 글은 남는 것이 정상이라 이 케이스에서는 자신의 글만 먼저 삭제한다.
+      await posts.delete(ownPostId);
+      await blockAuthor();
+      await blockAuthor(visibleAuthorId);
+      const response = await get('/posts', viewerId).expect(200);
+      expect(response.body).toEqual({
+        items: [],
+        hasNext: false,
+        nextCursor: null,
+      });
+    });
+
+    it.each(['wrong-signature', 'expired', 'refresh', 'malformed-header'])(
+      '%s 인증을 익명 조회로 강등하지 않고 세 조회 API 모두 401로 거절한다',
+      async (kind) => {
+        await http().get('/posts').expect(200); // 공용 캐시 적중 경로도 인증을 우회하면 안 된다.
+        const token =
+          kind === 'wrong-signature'
+            ? jwt.sign(
+                { sub: viewerId, type: 'access' },
+                { secret: 'wrong-secret' },
+              )
+            : jwt.sign(
+                {
+                  sub: viewerId,
+                  type: kind === 'refresh' ? 'refresh' : 'access',
+                },
+                { expiresIn: kind === 'expired' ? -1 : '5m' },
+              );
+        const header =
+          kind === 'malformed-header' ? 'Basic invalid' : `Bearer ${token}`;
+        for (const path of [
+          '/posts',
+          '/posts/search?keyword=테스트',
+          `/posts/${expectedIds[0]}`,
+        ]) {
+          await http()
+            .get(encodeURI(path))
+            .set('Authorization', header)
+            .expect(401);
+        }
+      },
+    );
+
+    it.each([undefined, 'not-a-number', 0, -1, 2147483648])(
+      '인증 결과 사용자 ID %s가 잘못되면 익명으로 처리하지 않는다',
+      async (sub) => {
+        const token = jwt.sign({ sub, type: 'access' }, { expiresIn: '5m' });
+        await http()
+          .get('/posts')
+          .set('Authorization', `Bearer ${token}`)
+          .expect(401);
+      },
+    );
   });
 });

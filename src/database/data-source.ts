@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { CouponEvent } from '../coupons/entities/coupon-event.entity';
 import { UserCoupon } from '../coupons/entities/user-coupon.entity';
 import { User } from '../users/entities/user.entity';
+import { UserBlock } from '../user-blocks/entities/user-block.entity';
 
 // 지금은 테스트 DB 전용이다.
 // 개발·운영 환경에서 잘못 실행하지 않도록 제한한다.
@@ -27,7 +28,7 @@ export default new DataSource({
   // 쿠폰의 소유자로 연결할 User부터 등록한다.
   // 쿠폰 엔티티를 만든 뒤 여기에 추가한다.
   // 마이그레이션에서 비교할 엔티티 목록
-  entities: [User, CouponEvent, UserCoupon],
+  entities: [User, CouponEvent, UserCoupon, UserBlock],
 
   // 나중에 만들 마이그레이션 파일의 위치
   migrations: [join(__dirname, 'migrations', '*{.ts,.js}')],

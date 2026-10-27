@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { CreateCouponTables1790656113575 } from './migrations/1790656113575-CreateCouponTables';
+import { CreateUserBlocks1793073086784 } from './migrations/1793073086784-CreateUserBlocks';
 
 // 개발용 명령으로 실행했는지 먼저 확인한다.
 if (process.env.NODE_ENV !== 'development') {
@@ -33,7 +34,7 @@ export default new DataSource({
   entities: [],
 
   // 테스트용 users 생성은 제외하고 쿠폰 테이블만 등록한다.
-  migrations: [CreateCouponTables1790656113575],
+  migrations: [CreateCouponTables1790656113575, CreateUserBlocks1793073086784],
   migrationsTableName: 'coupon_migrations',
 
   synchronize: false,

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Post as HttpPost,
   Param,
   ParseIntPipe,
@@ -24,7 +25,9 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../../../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { OptionalCurrentUser } from '../../../common/decorators/optional-current-user.decorator';
 import { CreatePostDto } from '../../dto/create-dto';
 import { GetPostsQueryDto } from '../../dto/get-posts-query.dto';
 import { GetPostsSearchQueryDto } from '../../dto/get-posts-search-query.dto';
@@ -63,42 +66,57 @@ export class PostsController {
   }
 
   // 게시글 목록 조회 GET /posts
-  @ApiOperation({ summary: '게시글 목록 조회' })
-  @ApiOkResponse({
-    description: '게시글 목록 조회 성공',
-    type: PostListPageDto,
+  @ApiOperation({ summary: '게시글 목록 조회 — 로그인 시 차단 작성자 제외' })
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: PostListPageDto })
+  @ApiUnauthorizedResponse({
+    description: '전달한 인증 토큰이 유효하지 않습니다.',
   })
+  @UseGuards(OptionalJwtAuthGuard)
+  @Header('Cache-Control', 'private, no-store')
   @Get()
-  async findList(@Query() query: GetPostsQueryDto): Promise<PostListPageDto> {
-    return this.postsService.findListItems(query);
+  async findList(
+    @Query() query: GetPostsQueryDto,
+    @OptionalCurrentUser() viewerId: number | undefined,
+  ): Promise<PostListPageDto> {
+    return this.postsService.findListItems(query, viewerId);
   }
 
   // 게시글 검색 GET /posts/search
-  @ApiOperation({ summary: '게시글 검색' })
-  @ApiOkResponse({
-    description: '게시글 검색 성공',
-    type: PostListPageDto,
+  @ApiOperation({ summary: '게시글 검색 — 로그인 시 차단 작성자 제외' })
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: PostListPageDto })
+  @ApiUnauthorizedResponse({
+    description: '전달한 인증 토큰이 유효하지 않습니다.',
   })
-  @Throttle({ default: { ttl: 60_000, limit: 60 } }) // 60초에 60번 요청 제한
+  @UseGuards(OptionalJwtAuthGuard)
+  @Header('Cache-Control', 'private, no-store')
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
   @Get('search')
   async searchList(
     @Query() query: GetPostsSearchQueryDto,
+    @OptionalCurrentUser() viewerId: number | undefined,
   ): Promise<PostListPageDto> {
-    return this.postsService.searchListItems(query);
+    return this.postsService.searchListItems(query, viewerId);
   }
 
   // 게시글 상세 조회 GET /posts/:id
   @ApiOperation({ summary: '게시글 상세 조회' })
-  @ApiOkResponse({
-    description: '게시글 상세 조회 성공',
-    type: PostResponseDto,
-  })
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: PostResponseDto })
   @ApiNotFoundResponse({ description: '게시글을 찾을 수 없습니다.' })
+  @ApiUnauthorizedResponse({
+    description: '전달한 인증 토큰이 유효하지 않습니다.',
+  })
+  @UseGuards(OptionalJwtAuthGuard)
+  @Header('Cache-Control', 'private, no-store')
   @Get(':id')
   async findOne(
     @Param('id', ParseIntPipe) id: number,
+    @OptionalCurrentUser() viewerId: number | undefined,
   ): Promise<PostResponseDto> {
-    const post = await this.postsService.findOne(id);
+    const post = await this.postsService.findOne(id, viewerId);
+
     return PostResponseDto.fromEntity(post);
   }
 

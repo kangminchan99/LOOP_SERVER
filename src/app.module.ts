@@ -22,6 +22,7 @@ import { PostsModule } from './posts/posts.module';
 import { NotificationQueueModule } from './queues/notification-queue/notification-queue.module';
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
+import { UserBlocksModule } from './user-blocks/user-blocks.module';
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { UsersModule } from './users/users.module';
     AdminModule,
     ChatModule,
     AdminSseModule,
+    UserBlocksModule,
   ],
   controllers: [AppController],
   providers: [

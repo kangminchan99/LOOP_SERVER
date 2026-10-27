@@ -32,6 +32,8 @@ describe('PostsService', () => {
     addOrderBy: jest.fn(),
     limit: jest.fn(),
     where: jest.fn(),
+    andWhere: jest.fn(),
+    getOne: jest.fn(),
     getRawMany: jest.fn(),
   };
   const createdAt = new Date('2026-09-21T12:00:00.123Z');
@@ -53,6 +55,7 @@ describe('PostsService', () => {
       qb.addOrderBy,
       qb.limit,
       qb.where,
+      qb.andWhere,
     ]) {
       method.mockReturnValue(qb);
     }
@@ -72,10 +75,40 @@ describe('PostsService', () => {
   });
 
   it('없는 게시글 조회는 실패한다', async () => {
-    posts.findOneBy.mockResolvedValue(null);
+    qb.getOne.mockResolvedValue(null);
     await expect(service.findOne(10)).rejects.toThrow(
       '게시글을 찾을 수 없습니다.',
     );
+    expect(qb.where).toHaveBeenCalledWith('post.id = :postId', { postId: 10 });
+    expect(qb.getOne).toHaveBeenCalledTimes(1);
+  });
+
+  it('상세 조회는 QueryBuilder로 조회한 엔티티를 반환한다', async () => {
+    const post = Object.assign(new Post(), { id: 10, authorId: 2 });
+    qb.getOne.mockResolvedValue(post);
+
+    await expect(service.findOne(10)).resolves.toBe(post);
+    expect(qb.andWhere).not.toHaveBeenCalled();
+    expect(posts.findOneBy).not.toHaveBeenCalled();
+  });
+
+  it('로그인 목록은 공용 캐시를 읽거나 개인 조회 결과로 덮어쓰지 않는다', async () => {
+    cache.getJson.mockResolvedValue({
+      items: ['공용 캐시'],
+      hasNext: false,
+      nextCursor: null,
+    });
+    qb.getRawMany.mockResolvedValue(makeRows(1));
+
+    const result = await service.findListItems({ limit: 20 }, 42);
+
+    expect(result.items).toHaveLength(1);
+    expect(qb.andWhere).toHaveBeenCalledWith(expect.any(Function), {
+      viewerId: 42,
+    });
+    expect(qb.getRawMany).toHaveBeenCalledTimes(1);
+    expect(cache.getJson).not.toHaveBeenCalled();
+    expect(cache.setJson).not.toHaveBeenCalled();
   });
 
   it('캐시가 있으면 DB 쿼리를 실행하지 않는다', async () => {
@@ -154,7 +187,7 @@ describe('PostsService', () => {
 
     const result = await service.findListItems({ limit: 5, cursor });
 
-    expect(qb.where).toHaveBeenCalledWith(
+    expect(qb.andWhere).toHaveBeenCalledWith(
       '(post.createdAt < :cursorCreatedAt OR (post.createdAt = :cursorCreatedAt AND post.id < :cursorPostId))',
       { cursorCreatedAt: createdAt, cursorPostId: 81 },
     );

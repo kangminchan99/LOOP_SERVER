@@ -7,6 +7,7 @@ import { User } from '../users/entities/user.entity';
 import { AuthController } from './controllers/auth/auth.controller';
 import { SocialAccount } from './entities/social-account.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { AuthService } from './services/auth/auth.service';
 import { GoogleAuthService } from './services/google/google-auth.service';
 import { KakaoAuthService } from './services/kakao/kakao-auth.service';
@@ -31,10 +32,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AuthService,
     JwtStrategy,
     JwtAuthGuard,
+    OptionalJwtAuthGuard,
     KakaoAuthService,
     GoogleAuthService,
   ],
-  exports: [JwtAuthGuard],
+  exports: [JwtAuthGuard, OptionalJwtAuthGuard],
   controllers: [AuthController],
 })
 export class AuthModule {}

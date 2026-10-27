@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { OpenAiService } from '../../../ai/services/open-ai/open-ai.service';
 import { CacheService } from '../../../cache/cache.service';
 import { NotificationQueueService } from '../../../queues/notification-queue/services/notification-queue/notification-queue.service';
+import { UserBlock } from '../../../user-blocks/entities/user-block.entity';
 import { User } from '../../../users/entities/user.entity';
 import { CreatePostDto } from '../../dto/create-dto';
 import { GetPostsQueryDto } from '../../dto/get-posts-query.dto';
@@ -74,24 +75,57 @@ export class PostsService {
     return postWithSummary;
   }
 
-  async findOne(id: number): Promise<Post> {
-    const post = await this.postsRepository.findOneBy({ id });
-    if (!post) throw new NotFoundException('게시글을 찾을 수 없습니다.');
+  async findOne(id: number, viewerId?: number): Promise<Post> {
+    const qb = this.postsRepository
+      .createQueryBuilder('post')
+      .where('post.id = :postId', { postId: id });
+
+    // 로그인한 사용자가 차단한 작성자의 글은 조회에서 제외한다.
+    if (viewerId !== undefined) {
+      qb.andWhere(
+        (queryBuilder) => {
+          const blockedAuthor = queryBuilder
+            .subQuery()
+            .select('1')
+            .from(UserBlock, 'userBlock')
+            .where('userBlock.blockerId = :viewerId')
+            .andWhere('userBlock.blockedUserId = post.authorId')
+            .getQuery();
+
+          return `NOT EXISTS ${blockedAuthor}`;
+        },
+        { viewerId },
+      );
+    }
+
+    const post = await qb.getOne();
+
+    // 없는 글과 차단으로 숨겨진 글에 같은 응답을 사용한다.
+    if (!post) {
+      throw new NotFoundException('게시글을 찾을 수 없습니다.');
+    }
+
     return post;
   }
 
   // 커서 기반 게시글 목록 조회 (최신순)
-  async findListItems(query: GetPostsQueryDto): Promise<PostListPageDto> {
+  async findListItems(
+    query: GetPostsQueryDto,
+    viewerId?: number,
+  ): Promise<PostListPageDto> {
     const { cursor, limit = 20 } = query;
 
     const cacheCursor = cursor ?? 'first';
     const cacheKey = `posts:list:limit:${limit}:cursor:${cacheCursor}`;
 
-    const cachedPage =
-      await this.cacheService.getJson<PostListPageDto>(cacheKey);
+    // 비로그인 조회만 공용 캐시를 사용한다.
+    if (viewerId === undefined) {
+      const cachedPage =
+        await this.cacheService.getJson<PostListPageDto>(cacheKey);
 
-    if (cachedPage) {
-      return cachedPage;
+      if (cachedPage) {
+        return cachedPage;
+      }
     }
 
     // 사용자 1명과의 JOIN은 행을 늘리지 않는다. raw 조회에는 take 대신 SQL LIMIT 사용.
@@ -106,10 +140,28 @@ export class PostsService {
       .addOrderBy('post.id', 'DESC')
       .limit(limit + 1);
 
+    // 로그인한 경우 본인이 차단한 작성자의 글을 제외한다.
+    if (viewerId !== undefined) {
+      qb.andWhere(
+        (queryBuilder) => {
+          const blockedAuthor = queryBuilder
+            .subQuery()
+            .select('1')
+            .from(UserBlock, 'userBlock')
+            .where('userBlock.blockerId = :viewerId')
+            .andWhere('userBlock.blockedUserId = post.authorId')
+            .getQuery();
+
+          return `NOT EXISTS ${blockedAuthor}`;
+        },
+        { viewerId },
+      );
+    }
+
     if (cursor) {
       const [cursorCreatedAt, cursorPostId] = cursor.split('_');
 
-      qb.where(
+      qb.andWhere(
         '(post.createdAt < :cursorCreatedAt OR (post.createdAt = :cursorCreatedAt AND post.id < :cursorPostId))',
         {
           cursorCreatedAt: new Date(cursorCreatedAt),
@@ -148,7 +200,10 @@ export class PostsService {
       hasNext,
     };
 
-    await this.cacheService.setJson(cacheKey, result, 10);
+    // 개인별 조회 결과가 공용 캐시에 섞이지 않도록 한다.
+    if (viewerId === undefined) {
+      await this.cacheService.setJson(cacheKey, result, 10);
+    }
 
     return result;
   }
@@ -156,6 +211,7 @@ export class PostsService {
   // 게시글 검색 목록 조회 (제목/본문 기준)
   async searchListItems(
     query: GetPostsSearchQueryDto,
+    viewerId?: number,
   ): Promise<PostListPageDto> {
     const { keyword, cursor, limit = 20 } = query;
 
@@ -172,6 +228,23 @@ export class PostsService {
       .orderBy('post.createdAt', 'DESC')
       .addOrderBy('post.id', 'DESC')
       .limit(limit + 1);
+
+    if (viewerId !== undefined) {
+      qb.andWhere(
+        (queryBuilder) => {
+          const blockedAuthor = queryBuilder
+            .subQuery()
+            .select('1')
+            .from(UserBlock, 'userBlock')
+            .where('userBlock.blockerId = :viewerId')
+            .andWhere('userBlock.blockedUserId = post.authorId')
+            .getQuery();
+
+          return `NOT EXISTS ${blockedAuthor}`;
+        },
+        { viewerId },
+      );
+    }
 
     if (cursor) {
       const [cursorCreatedAt, cursorPostId] = cursor.split('_');

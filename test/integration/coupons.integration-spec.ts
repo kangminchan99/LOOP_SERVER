@@ -127,6 +127,9 @@ describe('관리자 쿠폰 이벤트 + PostgreSQL + JWT 통합', () => {
     app.useLogger(false);
     app.useGlobalPipes(createValidationPipe());
     await app.init();
+    // Supertest가 첫 응답 후 서버를 닫아 다른 동시 요청을 끊지 않도록 유지한다.
+    // 고정 포트 충돌을 피하고 테스트 종료 시 app.close()로 닫는다.
+    await app.listen(0, '127.0.0.1');
   });
 
   beforeEach(async () => {
